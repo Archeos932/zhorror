@@ -68,6 +68,11 @@ static int run_tests(const char *path) {
     }
     memcpy(binds, bindDefault, sizeof binds);
     check("touches : avancer = W (scancode 0x11)", (float)binds[A_AVANCER][0], SC_W, SC_W);
+    {
+        int noms = 1;
+        for (int i = 0; i < A_COUNT; i++) if (!actId[i] || !actId[i][0] || !actLabel[i] || !actLabel[i][0]) noms = 0;
+        check("touches : chaque action a un nom et un libelle", (float)noms, 1, 1);
+    }
 
     /* carte faite a la main */
     reset_game();
