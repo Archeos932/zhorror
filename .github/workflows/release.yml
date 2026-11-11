@@ -1,8 +1,9 @@
 # Publication : a chaque push sur main (ou a la main : onglet Actions > Publication > Run workflow), compile les trois
-# versions, lance les tests, puis remplace les fichiers de la release « dernier » (prerelease) :
-#   https://github.com/<proprietaire>/zhorror/releases/download/dernier/bourdonnement.exe
-#   https://github.com/<proprietaire>/zhorror/releases/download/dernier/Bourdonnement-macOS.zip
-#   https://github.com/<proprietaire>/zhorror/releases/download/dernier/Bourdonnement-Linux.tar.gz
+# versions avec le numero de build BOURDON_BUILD = github.run_number, lance les tests, puis :
+#   1. met a jour la branche `release` du depot : bourdonnement.exe, Bourdonnement-macOS.zip, Bourdonnement-Linux.tar.gz
+#      et version.txt (numero de build, taille et SHA-256 de chaque binaire). C'est elle que lit le bouton
+#      MISE A JOUR du jeu (src/interface/mise_a_jour.c) ;
+#   2. remplace les fichiers de la release GitHub « dernier » (liens de telechargement stables).
 name: Publication
 
 on:
@@ -22,6 +23,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Compiler (MSVC)
         shell: cmd
+        env:
+          BOURDON_BUILD: ${{ github.run_number }}
         run: build.bat
       - name: Tests automatiques
         shell: pwsh
@@ -41,6 +44,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Compiler et tester
+        env:
+          BOURDON_BUILD: ${{ github.run_number }}
         run: |
           chmod +x build_mac.sh
           ./build_mac.sh
@@ -55,6 +60,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Compiler et tester
+        env:
+          BOURDON_BUILD: ${{ github.run_number }}
         run: |
           sudo apt-get update
           sudo apt-get install -y libx11-dev libgl-dev libasound2-dev libfreetype-dev
@@ -73,20 +80,60 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: bin
-      - name: Mettre a jour la release « dernier »
+      - name: Branche release (lue par le bouton MISE A JOUR)
+        env:
+          SHA: ${{ github.sha }}
+          BUILD: ${{ github.run_number }}
+          TOKEN: ${{ github.token }}
+        run: |
+          git init -q rel && cd rel
+          git remote add origin "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git fetch -q --depth 1 origin release; then git checkout -q -b release FETCH_HEAD
+          else git checkout -q --orphan release; fi
+          git rm -rqf --ignore-unmatch .
+          cp ../bin/win/bourdonnement.exe ../bin/mac/Bourdonnement-macOS.zip ../bin/linux/Bourdonnement-Linux.tar.gz .
+          {
+            echo "build=$BUILD"
+            echo "sha=${SHA:0:7}"
+            echo "win_size=$(stat -c %s bourdonnement.exe)"
+            echo "win_sha256=$(sha256sum bourdonnement.exe | cut -d' ' -f1)"
+            echo "mac_size=$(stat -c %s Bourdonnement-macOS.zip)"
+            echo "mac_sha256=$(sha256sum Bourdonnement-macOS.zip | cut -d' ' -f1)"
+            echo "linux_size=$(stat -c %s Bourdonnement-Linux.tar.gz)"
+            echo "linux_sha256=$(sha256sum Bourdonnement-Linux.tar.gz | cut -d' ' -f1)"
+          } > version.txt
+          {
+            echo "# BOURDONNEMENT - le jeu, pret a jouer"
+            echo
+            echo "Construit automatiquement depuis \`main\` (${SHA:0:7}), build $BUILD. Ne pas modifier cette branche a la main."
+            echo
+            echo "- **Windows** : telecharge [\`bourdonnement.exe\`](https://github.com/${GITHUB_REPOSITORY}/raw/release/bourdonnement.exe) et lance-le"
+            echo "  (si Windows avertit : *Informations complementaires* > *Executer quand meme*)."
+            echo "- **macOS** : [\`Bourdonnement-macOS.zip\`](https://github.com/${GITHUB_REPOSITORY}/raw/release/Bourdonnement-macOS.zip) (premier lancement : clic droit > Ouvrir)."
+            echo "- **Linux** : [\`Bourdonnement-Linux.tar.gz\`](https://github.com/${GITHUB_REPOSITORY}/raw/release/Bourdonnement-Linux.tar.gz)"
+            echo "  puis \`tar xzf Bourdonnement-Linux.tar.gz && ./Bourdonnement-Linux/bourdonnement\`."
+            echo
+            echo "Ensuite, le bouton **MISE A JOUR** du menu installe tout seul les nouvelles versions."
+          } > README.md
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Binaires de main ${SHA:0:7} (build $BUILD)" || { echo "rien a changer"; exit 0; }
+          git push -q origin release
+      - name: Release GitHub « dernier »
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
+          BUILD: ${{ github.run_number }}
         run: |
-          NOTES="Version de developpement, construite automatiquement depuis main (${SHA:0:7}).
-          - Windows : bourdonnement.exe (Windows peut avertir « application non reconnue » : Informations complementaires > Executer quand meme)
+          NOTES="Build $BUILD, construit automatiquement depuis main (${SHA:0:7}).
+          - Windows : bourdonnement.exe (si Windows avertit : Informations complementaires > Executer quand meme)
           - macOS : Bourdonnement-macOS.zip (premier lancement : clic droit > Ouvrir)
-          - Linux : tar xzf Bourdonnement-Linux.tar.gz && ./Bourdonnement-Linux/bourdonnement"
+          - Linux : tar xzf Bourdonnement-Linux.tar.gz && ./Bourdonnement-Linux/bourdonnement
+          Le bouton MISE A JOUR du menu installe ensuite les nouvelles versions tout seul."
           if gh release view dernier >/dev/null 2>&1; then
             gh release edit dernier --notes "$NOTES" --prerelease
           else
             gh release create dernier --title "BOURDONNEMENT (developpement)" --notes "$NOTES" --prerelease --target "$SHA"
           fi
-          gh release upload dernier bin/win/bourdonnement.exe bin/mac/Bourdonnement-macOS.zip \
-            bin/linux/Bourdonnement-Linux.tar.gz --clobber
+          gh release upload dernier bin/win/bourdonnement.exe bin/mac/Bourdonnement-macOS.zip bin/linux/Bourdonnement-Linux.tar.gz --clobber

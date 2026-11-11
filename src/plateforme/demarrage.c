@@ -7,9 +7,12 @@ static void do_action(void) {
     switch (a) {
     case ACT_JOUER: reset_game(); appState = APP_GAME; set_capture(1); break;
     case ACT_REPRENDRE: set_capture(1); break;
-    case ACT_MENU: set_capture(0); appState = APP_MENU; break;
+    case ACT_MENU: set_capture(0); appState = APP_MENU; settingsOpen = 0; break;
     case ACT_QUITTER: PostQuitMessage(0); break;
-    case ACT_PLEIN_ECRAN: toggle_fullscreen(); break;
+    case ACT_PLEIN_ECRAN: toggle_fullscreen(); cfg_save(); break;
+    case ACT_PARAM: settingsOpen = 1; break;
+    case ACT_FERMER_PARAM: settingsOpen = 0; cfg_save(); break;
+    case ACT_MAJ: upd_click(); break;
     }
 }
 
@@ -32,6 +35,7 @@ static int bourdon_main(const char *cmd) {
         shotBuf[strcspn(shotBuf, " ")] = 0;
         shotPath = shotBuf;
     }
+    if (cmd && strstr(cmd, "--updated")) updAfter = 1;   /* relance apres une mise a jour */
 
 #ifndef _WIN32
     if (!mac_window_create(winW, winH, "BOURDONNEMENT", 1)) return 1;
@@ -83,6 +87,7 @@ static int bourdon_main(const char *cmd) {
         for (int i = 0; i < nmon; i++) mon[i].pos = mon[i].prevPos = v3(20.5f, 0, 31.5f);   /* loin, sauf scenes de monstres */
         bpm = 96; coeurPouls = 0.6f;
         if (strstr(shotPath, "menu")) { appState = APP_MENU; nowT = 20; }
+        else if (strstr(shotPath, "param")) { appState = APP_MENU; nowT = 20; settingsOpen = 1; micOn = 1; micOuvert = 1; micNiveau = 0.06f; }
         else if (strstr(shotPath, "carton")) { carton_niveau(2); cartonCars = 200; nowT = 3; }
         else if (strstr(shotPath, "noir")) { P.pos = P.prevPos = v3(40.5f, 0, 7.5f); P.yaw = P.lampeYaw = 0; }   /* zone sans neon, flaque */
         else if (strstr(shotPath, "piege")) { P.pos = P.prevPos = v3(31.2f, 0, 27.5f); P.yaw = P.lampeYaw = PI / 2; P.pitch = P.lampePitch = -0.45f; }
@@ -107,7 +112,35 @@ static int bourdon_main(const char *cmd) {
 #endif
         return 0;
     }
+    {                                                     /* bourdonnement.ini */
+#ifdef _WIN32
+        char *slash;
+        GetModuleFileNameA(NULL, cfgPath, sizeof cfgPath);
+        slash = strrchr(cfgPath, '\\');
+        if (slash) strcpy(slash + 1, "bourdonnement.ini"); else cfgPath[0] = 0;
+#elif defined(__linux__)
+        char dir[MAX_PATH - 24];
+        if (linux_config_dir(dir, sizeof dir, 1)) snprintf(cfgPath, sizeof cfgPath, "%s/bourdonnement.ini", dir);
+        else cfgPath[0] = 0;
+#else                                                     /* le .app peut etre en lecture seule : reglages dans ~/Library */
+        const char *home = getenv("HOME");
+        if (home) {
+            snprintf(cfgPath, sizeof cfgPath, "%s/Library/Application Support/Bourdonnement", home);
+            mkdir(cfgPath, 0755);
+            snprintf(cfgPath, sizeof cfgPath, "%s/Library/Application Support/Bourdonnement/bourdonnement.ini", home);
+        } else cfgPath[0] = 0;
+#endif
+        if (cfg_load()) toggle_fullscreen();
+    }
     audio_init();
+    micro_appliquer();
+    upd_cleanup();                                        /* restes d'une mise a jour precedente */
+    if (updAfter) {
+        char ub[64];
+        snprintf(ub, sizeof ub, "mise a jour installee : build %d", BOURDON_BUILD);
+        set_status(ub);
+    }
+    if (updCheck) { updQuiet = 1; upd_start(upd_check_th, UPD_CHECKING); }   /* verification discrete */
 
     LARGE_INTEGER freq, start, last, now;
     QueryPerformanceFrequency(&freq);
@@ -157,10 +190,13 @@ static int bourdon_main(const char *cmd) {
 #endif
         ambiance_follow();
         audio_update();
+        micro_maj(dt);
         if (pendingAction) do_action();
     }
 done:
     set_capture(0);
+    cfg_save();
+    micOn = 0; micro_appliquer();
 #ifdef _WIN32
     if (audio_ok) { waveOutReset(wout); waveOutClose(wout); }
     wglMakeCurrent(NULL, NULL);

@@ -18,7 +18,8 @@
 #include "src/son/audio.c"                       /* mixeur waveOut / AudioQueue / ALSA, voix, boucles */
 #include "src/son/sons.c"                        /* synthese des bruitages : bourdon des neons, pas, gresillement */
 
-#include "src/jeu/etat.c"                        /* etat de l'application, actions de menu, curseur */
+#include "src/jeu/etat.c"                        /* etat de l'application, actions de menu, curseur, ligne d'etat */
+#include "src/son/micro.c"                       /* le micro : ce que tu dis, le monstre l'entend */
 #include "src/entrees/actions.c"                 /* touches physiques, actions A_*, touches par defaut */
 #include "src/entrees/saisie.c"                  /* input_poll, capture de la souris, fenetre (winW, winH) */
 
@@ -41,6 +42,8 @@
 #include "src/rendu/monde.c"                     /* dessin du monde : multitexture, neons fous, lampe projetee */
 #include "src/interface/texte.c"                 /* texte et rectangles 2D */
 #include "src/rendu/entites.c"                   /* Rodeur, fusibles, ascenseur, tete du screamer */
+#include "src/interface/mise_a_jour.c"           /* mise a jour depuis GitHub (branche release) */
+#include "src/interface/config.c"                /* bourdonnement.ini : reglages du joueur */
 #include "src/interface/menus.c"                 /* ecran titre, pause, incrustation camescope */
 #include "src/rendu/render.c"                    /* render() : l'image complete */
 

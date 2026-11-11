@@ -10,6 +10,7 @@
 #import <CoreText/CoreText.h>
 #import <GameController/GameController.h>
 #include <OpenGL/gl.h>
+#include <math.h>
 #include <stdatomic.h>
 #include "mac_platform.h"
 
@@ -546,6 +547,58 @@ void mac_audio_write(int i, const short *samples) {
 
 void mac_audio_close(void) {
     if (gQ) { AudioQueueStop(gQ, true); AudioQueueDispose(gQ, true); gQ = NULL; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Micro (BOURDONNEMENT) : AudioQueue d'entree, niveau RMS par tampon  */
+/* ------------------------------------------------------------------ */
+static AudioQueueRef gMicQ;
+static _Atomic int gMicNew;
+static _Atomic float gMicRms;
+
+static void mic_cb(void *ud, AudioQueueRef q, AudioQueueBufferRef b, const AudioTimeStamp *ts, UInt32 np,
+                   const AudioStreamPacketDescription *pd) {
+    (void)ud; (void)ts; (void)np; (void)pd;
+    const short *s = (const short *)b->mAudioData;
+    int n = (int)(b->mAudioDataByteSize / 2);
+    double e = 0;
+    for (int i = 0; i < n; i++) { double v = s[i] / 32768.0; e += v * v; }
+    if (n > 0) {
+        float r = (float)sqrt(e / n);
+        if (!atomic_load(&gMicNew) || r > atomic_load(&gMicRms)) atomic_store(&gMicRms, r);
+        atomic_store(&gMicNew, 1);
+    }
+    if (gMicQ) AudioQueueEnqueueBuffer(q, b, 0, NULL);
+}
+
+int mac_mic_open(int rate) {
+    if (gMicQ) return 1;
+    AudioStreamBasicDescription f = { 0 };
+    f.mSampleRate = rate; f.mFormatID = kAudioFormatLinearPCM;
+    f.mFormatFlags = kLinearPCMFormatFlagIsSignedInteger | kLinearPCMFormatFlagIsPacked;
+    f.mBitsPerChannel = 16; f.mChannelsPerFrame = 1; f.mBytesPerFrame = 2; f.mFramesPerPacket = 1; f.mBytesPerPacket = 2;
+    if (AudioQueueNewInput(&f, mic_cb, NULL, NULL, NULL, 0, &gMicQ) != noErr) { gMicQ = NULL; return 0; }
+    for (int i = 0; i < 3; i++) {
+        AudioQueueBufferRef b;
+        if (AudioQueueAllocateBuffer(gMicQ, 2048, &b) != noErr) { mac_mic_close(); return 0; }
+        AudioQueueEnqueueBuffer(gMicQ, b, 0, NULL);
+    }
+    if (AudioQueueStart(gMicQ, NULL) != noErr) { mac_mic_close(); return 0; }
+    return 1;
+}
+
+float mac_mic_level(void) {
+    if (!atomic_load(&gMicNew)) return -1;
+    atomic_store(&gMicNew, 0);
+    return atomic_load(&gMicRms);
+}
+
+void mac_mic_close(void) {
+    if (!gMicQ) return;
+    AudioQueueRef q = gMicQ;
+    gMicQ = NULL;
+    AudioQueueStop(q, true);
+    AudioQueueDispose(q, true);
 }
 
 /* ------------------------------------------------------------------ */

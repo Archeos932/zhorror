@@ -45,19 +45,25 @@ Le propriétaire est francophone : réponses, commentaires et docs **en françai
 - **Réseau** (étape 4) : reprendre `src/reseau/` de VELOCITY ; l'hôte (id 0) fait autorité sur monstres, objets,
   portes, morts et directeur ; incrémenter `NET_VER` à chaque changement de paquet ou d'événement.
 
-## État actuel (étapes 1 + morceaux de 3 et 5 : jouable en solo)
+## État actuel (jouable en solo)
 
-- **Monde en grille** (`src/monde/carte.c`) : cases de 1 m, néons (`NEON_OK/FOU/MORT/ASC`), ascenseur, fusibles,
-  `ray_grille` (rayons en suivant les cases), collisions, distances (`carte_distances_dans`). Niveau 1 fait à la main
-  (`niveau_essai.c`, légende dans `carte_charger`), niveaux 2+ générés par graine (`generation.c` ; un bout de mur
-  qui couperait le niveau est retiré).
-- **Lumière** (`src/rendu/eclairage.c`) : précalcul CPU (testable), lightmaps fixe + dynamique (néons fous /
-  ascenseur) dans un atlas 2048² ; `monde.c` : multitexture ×2, passe additive des néons dynamiques, **lampe
-  projetée** (glTexGen S/T/R/Q EYE_LINEAR + matrice de texture en frustum, portée = brouillard noir).
-- **Le Rôdeur** (`src/monstres/rodeur.c`) : aveugle, n'entend que `P.bruit` (marche, course, lampe, cri…),
-  erre autour du joueur, écoute, enquête, poursuit ; chemins = descente de la carte de distances vers sa cible.
-- **Peur** (`src/jeu/screamers.c`) : screamer de mort, apparitions dans le faisceau, faux bruits, cœur, drone,
-  lampe qui grésille quand il est près. **Objectif** (`src/jeu/niveaux.c`) : 3 fusibles → ascenseur → niveau suivant.
-- Son 3D (`src/son/son3d.c`) : gauche/droite, distance, étouffé derrière un mur.
-- Captures : `--shot` avec `menu`, `jeu`, `noir`, `rodeur`, `screamer`, `ascenseur`, `piliers`, `niveau2`.
-- **Pas encore** : réseau (étape 4), VHS, réglages sauvegardés, histoire/textes du scénario (étape 6).
+- **Monde en grille** (`src/monde/carte.c`) : cases de 1 m, néons, ascenseur, fusibles, sol (`SOL_EAU`, `SOL_VERRE`),
+  pièges (`PIEGE_MACHOIRE`, `PIEGE_ALARME`), `lumCase`. Niveau 1 fait à la main (`niveau_essai.c`, légende dans
+  `carte_charger`), niveaux 2+ générés (`generation.c`, réglés par `genEau`/`genVerre`/`genMachoires`/`genAlarmes`).
+- **Lumière** (`src/rendu/eclairage.c`, `monde.c`) : lightmaps précalculées (fixe + néons dynamiques), lampe projetée.
+- **Monstres** (`src/monstres/monstres.c`, tableau `mon[]`) : Rôdeur (bruit), Locataire (n'avance que dans le noir),
+  Rampante (fonce sur la lumière). Composition par niveau : `niveau_monstres` (`src/jeu/niveaux.c`).
+- **Peur** (`src/jeu/screamers.c`) : BPM du joueur, screamer par monstre, apparitions, subliminales (option `flashsOn`).
+- **Musique** (`src/son/ambiance.c`, inclus par `audio.c`) : synthèse temps réel pilotée par `ambTension` et
+  `amb_battement` (le cœur). Son propre hasard (`ambRng`) : ne touche pas à `rng`.
+- **Histoire** : `src/jeu/histoire.c` (cartons, radio) ; textes dans `outils/textes.py` → **regénérer**
+  `src/jeu/textes.c` avec `python3 outils/textes.py` (accents convertis en CP1252). Ne pas modifier `textes.c` à la main.
+- **Micro** (`src/son/micro.c` ; plateforme : `mac_mic_*` dans `mac_platform.m` et `linux_platform.c`, waveIn sous
+  Windows) : `micro_bruit()` s'ajoute à `P.bruit`. macOS : `NSMicrophoneUsageDescription` dans l'Info.plist (build_mac.sh).
+- **Réglages** : `bourdonnement.ini` (`src/interface/config.c`), écran PARAMÈTRES (`menus.c`).
+- **Mise à jour** (`src/interface/mise_a_jour.c`, repris de VELOCITY) : lit `version.txt` de la branche `release`
+  (remplie par `.github/workflows/release.yml` à chaque push sur `main`, build = `BOURDON_BUILD` = run_number).
+  **Pousser sur `main` = publier chez tous les joueurs.**
+- Captures `--shot` : `menu`, `param`, `jeu`, `noir`, `flaque`, `piege`, `rodeur`, `locataire`, `rampante`,
+  `screamer`, `mort`, `carton`, `ascenseur`, `piliers`, `niveau3`.
+- **Pas encore** : réseau (étape 4).

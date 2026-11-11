@@ -131,7 +131,7 @@ static void player_tick(float dt) {
     if (spd > 0.15f) b = P.accroupi ? BRUIT_ACCROUPI : P.court ? BRUIT_COURSE : BRUIT_MARCHE * clampf(spd / MARCHE_V, 0.3f, 1.0f);
     if (P.essouffle) b = fmaxf(b, BRUIT_SOUFFLE);
     P.bruitImpulse = fmaxf(0, P.bruitImpulse - BRUIT_DECROIT * dt);
-    P.bruit = fmaxf(b, P.bruitImpulse);
+    P.bruit = fmaxf(fmaxf(b, P.bruitImpulse), micro_bruit());   /* ta voix compte aussi */
 }
 
 /* position des yeux interpolee : accroupi, balancement, penche (sans traverser le mur) */

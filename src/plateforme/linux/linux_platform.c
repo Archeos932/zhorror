@@ -27,6 +27,7 @@
 #include <netinet/tcp.h>
 #include <poll.h>
 #include <pthread.h>
+#include <math.h>
 #include <stdatomic.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -568,6 +569,56 @@ void mac_audio_close(void) {
     snd_pcm_close(gPcm);
     gPcm = NULL;
     for (int i = 0; i < gNbuf; i++) { free(gAbuf[i]); gAbuf[i] = NULL; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Micro (BOURDONNEMENT) : capture ALSA dans un fil, niveau RMS        */
+/* ------------------------------------------------------------------ */
+static snd_pcm_t *gMic;
+static pthread_t gMicTh;
+static atomic_int gMicStop, gMicNew;
+static _Atomic float gMicRms;
+
+static void *mic_main(void *arg) {
+    (void)arg;
+    short buf[1024];
+    while (!atomic_load(&gMicStop)) {
+        snd_pcm_sframes_t n = snd_pcm_readi(gMic, buf, 1024);
+        if (n < 0) { snd_pcm_recover(gMic, (int)n, 1); continue; }
+        double e = 0;
+        for (int i = 0; i < n; i++) { double v = buf[i] / 32768.0; e += v * v; }
+        if (n > 0) {
+            float r = (float)sqrt(e / (double)n);
+            if (!atomic_load(&gMicNew) || r > atomic_load(&gMicRms)) atomic_store(&gMicRms, r);
+            atomic_store(&gMicNew, 1);
+        }
+    }
+    return NULL;
+}
+
+int mac_mic_open(int rate) {
+    if (gMic) return 1;
+    if (snd_pcm_open(&gMic, "default", SND_PCM_STREAM_CAPTURE, 0) < 0) { gMic = NULL; return 0; }
+    if (snd_pcm_set_params(gMic, SND_PCM_FORMAT_S16_LE, SND_PCM_ACCESS_RW_INTERLEAVED, 1, (unsigned)rate, 1, 50000) < 0) {
+        snd_pcm_close(gMic); gMic = NULL; return 0;
+    }
+    atomic_store(&gMicStop, 0);
+    if (pthread_create(&gMicTh, NULL, mic_main, NULL) != 0) { snd_pcm_close(gMic); gMic = NULL; return 0; }
+    return 1;
+}
+
+float mac_mic_level(void) {
+    if (!atomic_load(&gMicNew)) return -1;
+    atomic_store(&gMicNew, 0);
+    return atomic_load(&gMicRms);
+}
+
+void mac_mic_close(void) {
+    if (!gMic) return;
+    atomic_store(&gMicStop, 1);
+    pthread_join(gMicTh, NULL);
+    snd_pcm_close(gMic);
+    gMic = NULL;
 }
 
 /* ------------------------------------------------------------------ */

@@ -13,7 +13,7 @@ rm -rf "$OUT"
 mkdir -p "$OUT"
 
 # -Wno-format-truncation : gcc signale chaque snprintf qui pourrait couper (voulu : c'est son role)
-$CC -O2 -std=gnu11 -Wall -Wno-format-truncation $FT_CFLAGS \
+$CC -O2 -std=gnu11 -Wall -Wno-format-truncation ${BOURDON_BUILD:+-DBOURDON_BUILD=$BOURDON_BUILD} $FT_CFLAGS \
     main.c src/plateforme/linux/linux_platform.c \
     -lX11 -lGL -lasound $FT_LIBS -ldl -lpthread -lm \
     -o "$OUT/bourdonnement"

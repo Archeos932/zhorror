@@ -302,6 +302,42 @@ static int run_tests(const char *path) {
         check("generation : 200 graines toutes valides", (float)mauvais, 0, 0);
     }
 
+    /* micro : chuchoter passe, crier attire */
+    micGain = MICRO_GAIN_DEFAUT;
+    micNiveau = 0.015f; check("micro : un chuchotement ne fait aucun bruit", micro_bruit(), 0, 0);
+    micNiveau = 0.08f; check("micro : parler normalement s'entend", micro_bruit(), 0.4f, 1.2f);
+    micNiveau = 0.35f; check("micro : un cri = bruit maximal", micro_bruit(), MICRO_MAX, MICRO_MAX);
+    test_reset(); test_place(10.5f, 27.5f, PI / 2); test_monstre(MON_RODEUR, 24.5f, 27.5f);
+    micOuvert = 1; micNiveau = 0.35f;                     /* on simule un cri dans le micro, immobile */
+    test_run(2, -1, -1);
+    micOuvert = 0; micNiveau = 0;
+    check("micro : crier attire le Rodeur a 14 m", (float)mon[0].etat, E_CHASSE, E_CHASSE);
+
+    /* mise a jour et reglages */
+    {
+        UpdInfo in;
+        int ok = upd_parse("build=42\nsha=abc1234\nwin_size=1000\nwin_sha256=AB\nmac_size=7\nlinux_size=9\n", &in);
+        check("mise a jour : version.txt lu (build)", (float)(ok ? in.build : -1), 42, 42);
+        check("mise a jour : tailles lues", (float)(in.winSize + in.macSize + in.linSize), 1016, 1016);
+        Sha256 sh; char hex[65];
+        sha_init(&sh); sha_update(&sh, "abc", 3); sha_final(&sh, hex);
+        check("mise a jour : sha256(\"abc\")", strcmp(hex, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad") == 0 ? 1.0f : 0.0f, 1, 1);
+        check("mise a jour : une version plus recente est proposee", (float)(in.build > BOURDON_BUILD), 1, 1);
+    }
+    {
+        char garde[1024]; snprintf(garde, sizeof garde, "%s", cfgPath);
+        snprintf(cfgPath, sizeof cfgPath, "%s.cfg", path);
+        masterVol = 0.7f; micOn = 1; micGain = 6.5f; flashsOn = 0; sens = 0.003f;
+        cfg_save();
+        masterVol = 1; micOn = 0; micGain = 1; flashsOn = 1; sens = 0.001f;
+        cfg_load();
+        check("reglages : sauvegardes puis relus", (fabsf(masterVol - 0.7f) < 0.01f && micOn && fabsf(micGain - 6.5f) < 0.01f && !flashsOn
+                                                   && fabsf(sens - 0.003f) < 0.0001f) ? 1.0f : 0.0f, 1, 1);
+        remove(cfgPath);
+        snprintf(cfgPath, sizeof cfgPath, "%s", garde);
+        micOn = 0; flashsOn = 1;
+    }
+
     fprintf(testOut, "\n%d tests, %d echec(s)\n", testCount, testFails);
     fclose(testOut);
     return testFails ? 1 : 0;

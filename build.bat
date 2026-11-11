@@ -8,4 +8,7 @@ set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 set /p VSPATH=<"%TEMP%\vspath.txt"
 call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" >nul 2>nul
 :build
-cl /nologo /O2 /W3 /std:c11 /Fe:bourdonnement.exe main.c /link /SUBSYSTEM:WINDOWS
+rem BOURDON_BUILD : numero de build donne par la CI (mise a jour automatique) ; absent = 0 (dev)
+set "BBUILD="
+if defined BOURDON_BUILD set "BBUILD=/DBOURDON_BUILD=%BOURDON_BUILD%"
+cl /nologo /O2 /W3 /std:c11 %BBUILD% /Fe:bourdonnement.exe main.c /link /SUBSYSTEM:WINDOWS

@@ -60,6 +60,13 @@ static void draw_hud(float t) {
     text(0, 28, winH - 52.0f, "BRUIT", 0.6f, 0.58f, 0.5f, 0.5f);
     rect(28, winH - 42.0f, 110, 4, 0.2f, 0.2f, 0.2f, 0.4f);
     rect(28, winH - 42.0f, 110 * br, 4, 0.5f + 0.5f * br, 0.6f - 0.4f * br, 0.4f - 0.3f * br, 0.75f);
+    if (micOuvert) {                                      /* ta voix : au-dessus du trait, il t'entend */
+        float mv = clampf(micNiveau * micGain / (MICRO_SEUIL + MICRO_PLAGE * MICRO_MAX), 0, 1), sl = MICRO_SEUIL / (MICRO_SEUIL + MICRO_PLAGE * MICRO_MAX);
+        text(0, 150, winH - 52.0f, "MICRO", 0.6f, 0.58f, 0.5f, 0.5f);
+        rect(150, winH - 42.0f, 80, 4, 0.2f, 0.2f, 0.2f, 0.4f);
+        rect(150, winH - 42.0f, 80 * mv, 4, mv > sl ? 0.95f : 0.4f, mv > sl ? 0.2f : 0.7f, mv > sl ? 0.1f : 0.4f, 0.8f);
+        rect(150 + 80 * sl, winH - 45.0f, 1, 10, 1, 1, 1, 0.5f);
+    }
     /* batterie de la lampe */
     float bat = P.batterie / LAMPE_BATTERIE;
     int faible = bat < LAMPE_FAIBLE;
@@ -147,6 +154,8 @@ static void render(float alpha, float frameDt) {
     int plan = -1;                                        /* screamer : coupes toutes les 90 ms */
     if (screamT >= 0) plan = screamT < 0.06f ? 9 : (int)(hash32((unsigned)(screamT / 0.09f) * 2654435761u) % 4);
     if (subliminalT >= 0) plan = 1;
+    if (!flashsOn && plan >= 0 && screamT < 0) plan = -1;   /* sans flashs : pas d'image subliminale */
+    if (!flashsOn && plan == 2) plan = 0;                  /* ni negatif */
     if (plan >= 0) {
         begin_2d();
         int negatif = plan == 2;
@@ -177,7 +186,7 @@ static void render(float alpha, float frameDt) {
         if (screamT >= 0) {
             dechirures(t, 6 + (int)(hash32((unsigned)(t * 30)) % 14));
             float f = fmodf(screamT, 0.1f) < 0.05f ? 1.0f : 0.0f;
-            if (screamT < 0.6f) rect(0, 0, (float)winW, (float)winH, 0.55f * f + 0.05f, 0, 0, 0.3f);   /* flashs rouge sang */
+            if (screamT < 0.6f && flashsOn) rect(0, 0, (float)winW, (float)winH, 0.55f * f + 0.05f, 0, 0, 0.3f);   /* flashs rouge sang */
             if (screamT > SCREAMER_MORT_T - 0.4f) rect(0, 0, (float)winW, (float)winH, 0, 0, 0, (screamT - (SCREAMER_MORT_T - 0.4f)) * 2.5f);
         } else if (mortT >= 0) {
             rect(0, 0, (float)winW, (float)winH, 0, 0, 0, 1);

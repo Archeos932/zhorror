@@ -95,6 +95,12 @@
 #define ALARME_T          6.0f    /* un faux fusible sonne pendant ce temps */
 #define BRUIT_ALARME      1.6f
 
+/* --- micro : crier dans le micro, c'est faire du bruit dans le jeu --- */
+#define MICRO_GAIN_DEFAUT 4.0f    /* sensibilite (reglable dans PARAMETRES) */
+#define MICRO_SEUIL       0.12f   /* niveau (apres gain) en dessous duquel on chuchote : rien n'est entendu */
+#define MICRO_PLAGE       0.25f   /* au-dessus du seuil, + MICRO_PLAGE = un bruit de 1 (comme courir) */
+#define MICRO_MAX         2.0f    /* un cri : aussi fort que crier avec Espace */
+
 /* --- coeur --- */
 #define BPM_REPOS         66.0f
 #define BPM_MAX           192.0f

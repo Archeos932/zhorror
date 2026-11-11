@@ -103,7 +103,7 @@ static void peur_tick(float dt) {
             if (mon[0].type == MON_RODEUR && frand() < 0.5f) { mon_etat(&mon[0], E_ENQUETE, 0); mon_viser(&mon[0], P.pos); }   /* et le vrai arrive */
         }
     }
-    if ((subliminalProchain -= dt * (0.3f + tension)) <= 0) {   /* deux images du visage, a peine vues */
+    if (flashsOn && (subliminalProchain -= dt * (0.3f + tension)) <= 0) {   /* deux images du visage, a peine vues */
         subliminalProchain = SUBLIMINAL_MIN + frand() * (SUBLIMINAL_MAX - SUBLIMINAL_MIN);
         subliminalT = 0;
         play(S_STINGER, 0.35f, 1.6f);

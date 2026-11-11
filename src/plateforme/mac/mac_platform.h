@@ -33,6 +33,11 @@ int  mac_audio_done(int i);                                             /* le ta
 void mac_audio_write(int i, const short *samples);
 void mac_audio_close(void);
 
+/* --- micro : capture mono 16 bits ; niveau = RMS (0..1) du dernier tampon (BOURDONNEMENT) --- */
+int   mac_mic_open(int rate);                                           /* 1 si ok (macOS : demande l'autorisation) */
+float mac_mic_level(void);                                              /* -1 : rien de neuf depuis la derniere lecture */
+void  mac_mic_close(void);
+
 /* --- WebSocket texte (lobby) : bloquant, a utiliser depuis un fil --- */
 typedef struct MacWs MacWs;
 MacWs *mac_ws_open(const char *host, int port, int secure);             /* NULL si echec */

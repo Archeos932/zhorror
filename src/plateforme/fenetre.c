@@ -38,6 +38,7 @@ static int in_key_down(int sc, int repeat) {
         latch[sc] = 1;
         if (sc == SC_ESC) {
             if (uiFocus) uiFocus = 0;
+            else if (settingsOpen) { settingsOpen = 0; cfg_save(); }
             else if (appState == APP_GAME) set_capture(0);   /* pause */
         }
         if (sc == SC_F11) toggle_fullscreen();

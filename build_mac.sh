@@ -8,7 +8,8 @@ APP=Bourdonnement.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-clang -O2 -std=gnu11 -fobjc-arc -Wall -Wno-deprecated-declarations \
+# BOURDON_BUILD : numero de build donne par la CI (mise a jour automatique) ; absent = 0 (dev)
+clang -O2 -std=gnu11 -fobjc-arc -Wall -Wno-deprecated-declarations ${BOURDON_BUILD:+-DBOURDON_BUILD=$BOURDON_BUILD} \
     -mmacosx-version-min=10.15 -arch arm64 -arch x86_64 \
     main.c src/plateforme/mac/mac_platform.m \
     -framework Cocoa -framework OpenGL -framework AudioToolbox -framework CoreText -framework Carbon -framework GameController \
@@ -29,6 +30,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>LSMinimumSystemVersion</key><string>10.15</string>
     <key>NSHighResolutionCapable</key><false/>
     <key>LSApplicationCategoryType</key><string>public.app-category.games</string>
+    <key>NSMicrophoneUsageDescription</key><string>Le monstre entend ta voix : si tu parles fort ou si tu cries, il vient. Chuchote.</string>
 </dict>
 </plist>
 PLIST
