@@ -1,0 +1,34 @@
+name: Linux
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Paquets de developpement
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libgl-dev libasound2-dev libfreetype-dev
+
+      - name: Compiler (zero avertissement)
+        run: |
+          chmod +x build_linux.sh
+          ./build_linux.sh 2>&1 | tee build.log
+          if grep -q "warning" build.log; then echo "::error::avertissements de compilation"; exit 1; fi
+
+      - name: Tests automatiques
+        run: |
+          Bourdonnement-Linux/bourdonnement --test test.txt || { cat test.txt; exit 1; }
+          cat test.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bourdonnement-Linux
+          path: Bourdonnement-Linux.tar.gz

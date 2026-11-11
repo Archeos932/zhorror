@@ -1,0 +1,21 @@
+# binaires et fichiers produits par les builds / les tests
+bourdonnement.exe
+*.obj
+*.pdb
+*.ilk
+*.wav
+test.txt
+*.bmp
+*.png
+*.log
+# reglages personnels du joueur
+bourdonnement.ini
+# macOS
+.DS_Store
+Bourdonnement.app/
+Bourdonnement-macOS.zip
+# Linux
+Bourdonnement-Linux/
+Bourdonnement-Linux.tar.gz
+# copies de travail des agents
+.claude/worktrees/

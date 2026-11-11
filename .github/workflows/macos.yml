@@ -1,0 +1,29 @@
+name: macOS
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compiler (universel arm64 + x86_64, zero avertissement)
+        run: |
+          chmod +x build_mac.sh
+          ./build_mac.sh 2>&1 | tee build.log
+          if grep -q "warning" build.log; then echo "::error::avertissements de compilation"; exit 1; fi
+
+      - name: Tests automatiques
+        run: |
+          Bourdonnement.app/Contents/MacOS/bourdonnement --test test.txt || { cat test.txt; exit 1; }
+          cat test.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bourdonnement-macOS
+          path: Bourdonnement-macOS.zip

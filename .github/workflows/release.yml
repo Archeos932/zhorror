@@ -1,0 +1,92 @@
+# Publication : a chaque push sur main (ou a la main : onglet Actions > Publication > Run workflow), compile les trois
+# versions, lance les tests, puis remplace les fichiers de la release « dernier » (prerelease) :
+#   https://github.com/<proprietaire>/zhorror/releases/download/dernier/bourdonnement.exe
+#   https://github.com/<proprietaire>/zhorror/releases/download/dernier/Bourdonnement-macOS.zip
+#   https://github.com/<proprietaire>/zhorror/releases/download/dernier/Bourdonnement-Linux.tar.gz
+name: Publication
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: publication
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compiler (MSVC)
+        shell: cmd
+        run: build.bat
+      - name: Tests automatiques
+        shell: pwsh
+        run: |
+          $p = Start-Process .\bourdonnement.exe -ArgumentList "--test","test.txt" -PassThru
+          $p.WaitForExit(180000) | Out-Null
+          if (-not $p.HasExited) { $p.Kill(); throw "--test : delai depasse" }
+          Get-Content test.txt
+          if ($p.ExitCode -ne 0) { throw "--test : code $($p.ExitCode)" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: win
+          path: bourdonnement.exe
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compiler et tester
+        run: |
+          chmod +x build_mac.sh
+          ./build_mac.sh
+          Bourdonnement.app/Contents/MacOS/bourdonnement --test test.txt || { cat test.txt; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: Bourdonnement-macOS.zip
+
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compiler et tester
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libgl-dev libasound2-dev libfreetype-dev
+          chmod +x build_linux.sh
+          ./build_linux.sh
+          Bourdonnement-Linux/bourdonnement --test test.txt || { cat test.txt; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: Bourdonnement-Linux.tar.gz
+
+  publier:
+    needs: [windows, macos, linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: bin
+      - name: Mettre a jour la release « dernier »
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          NOTES="Version de developpement, construite automatiquement depuis main (${SHA:0:7}).
+          - Windows : bourdonnement.exe (Windows peut avertir « application non reconnue » : Informations complementaires > Executer quand meme)
+          - macOS : Bourdonnement-macOS.zip (premier lancement : clic droit > Ouvrir)
+          - Linux : tar xzf Bourdonnement-Linux.tar.gz && ./Bourdonnement-Linux/bourdonnement"
+          if gh release view dernier >/dev/null 2>&1; then
+            gh release edit dernier --notes "$NOTES" --prerelease
+          else
+            gh release create dernier --title "BOURDONNEMENT (developpement)" --notes "$NOTES" --prerelease --target "$SHA"
+          fi
+          gh release upload dernier bin/win/bourdonnement.exe bin/mac/Bourdonnement-macOS.zip \
+            bin/linux/Bourdonnement-Linux.tar.gz --clobber
