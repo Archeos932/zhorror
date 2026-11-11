@@ -1,18 +1,67 @@
 /* BOURDONNEMENT - point d'entree (WinMain / bourdon_main) et boucle principale (repris de VELOCITY, allege)
    Morceau de main.c : inclus dans l'ordre, ne se compile pas seul (voir main.c). */
 
+/* --multi creer|rejoindre : deux instances jouent seules (tests du reseau sur une machine) ; autoMulti : 1 creer, 2 rejoindre */
+static float autoTemps = 30, autoT, autoLogT;
+static void auto_tick(float dt) {
+    if (!autoMulti) return;
+    autoT += dt;
+    if (appState == APP_MENU && autoT > 0.5f && salEtat == SAL_AUCUN) { en_ligne_ouvrir(); appState = APP_EN_LIGNE; }
+    if (salEtat == SAL_LISTE) {
+        if (autoMulti == 1) { salon_creer(); salEtat = SAL_CONNEXION; }
+        else if (nsalons > 0) { salon_rejoindre(salons[0].code); salEtat = SAL_CONNEXION; }
+    }
+    if (salEtat == SAL_DANS && salHote) {                 /* l'hote lance des que quelqu'un est la */
+        int n = 0; for (int k = 0; k < MAXP; k++) n += JP[k].nom[0] != 0;
+        static float relance;
+        if (n >= 2 && (relance -= dt) <= 0) { salon_lancer(); relance = 2; }
+    }
+    if (appState == APP_GAME) {
+        if (cartonActif && fmodf(autoT, 0.4f) < dt) botPress[A_UTILISER] = 1;   /* lit les textes en vitesse */
+        botHeld[A_AVANCER] = !cartonActif && fmodf(autoT, 6) < 4;   /* il marche, s'arrete, tourne */
+        if (!cartonActif && fmodf(autoT, 6) > 5.5f) P.yaw += dt * 2.5f;
+        if ((autoLogT -= dt) <= 0) {
+            autoLogT = 2;
+            char autres[160] = ""; int k0 = 0;
+            for (int k = 0; k < MAXP; k++)
+                if (k != monSlot && JP[k].actif)
+                    k0 += snprintf(autres + k0, sizeof autres - (size_t)k0, " %s(%.1f,%.1f)", JP[k].nom, JP[k].st.x, JP[k].st.z);
+            netlog("etat : niveau %d, moi (%.1f,%.1f) %s, autres :%s, monstres %d [%d a (%.1f,%.1f)], recus %d envoyes %d",
+                   niveauNum, P.pos.x, P.pos.z, P.dead ? "mort" : "vivant", autres, nmon, nmon ? mon[0].type : -1,
+                   nmon ? mon[0].pos.x : 0, nmon ? mon[0].pos.z : 0, netRecus, netEnvoyes);
+        }
+    }
+    if (autoT > autoTemps) {
+        netlog("fin : %s, place %d, niveau %d, recus %d, envoyes %d", netMode == NET_HOTE ? "hote" : netMode == NET_CLIENT ? "client" : "hors ligne",
+               monSlot, niveauNum, netRecus, netEnvoyes);
+        PostQuitMessage(0);
+    }
+}
+
 static void do_action(void) {
     int a = pendingAction;
     pendingAction = ACT_NONE;
     switch (a) {
     case ACT_JOUER: reset_game(); appState = APP_GAME; set_capture(1); break;
     case ACT_REPRENDRE: set_capture(1); break;
-    case ACT_MENU: set_capture(0); appState = APP_MENU; settingsOpen = 0; break;
-    case ACT_QUITTER: PostQuitMessage(0); break;
+    case ACT_MENU: set_capture(0); appState = APP_MENU; settingsOpen = 0; if (netMode != NET_OFF) en_ligne_fermer(); break;
+    case ACT_QUITTER: en_ligne_fermer(); PostQuitMessage(0); break;
     case ACT_PLEIN_ECRAN: toggle_fullscreen(); cfg_save(); break;
     case ACT_PARAM: settingsOpen = 1; break;
     case ACT_FERMER_PARAM: settingsOpen = 0; cfg_save(); break;
     case ACT_MAJ: upd_click(); break;
+    case ACT_EN_LIGNE: cfg_save(); en_ligne_ouvrir(); appState = APP_EN_LIGNE; uiFocus = 0; break;
+    case ACT_CREER: { char n[16]; nom_propre(n, sizeof n); ws_envoyer("nom %s", n); salon_creer(); cfg_save(); break; }
+    case ACT_REJOINDRE:
+        if (pendingArg >= 0 && pendingArg < nsalons) { char n[16]; nom_propre(n, sizeof n); ws_envoyer("nom %s", n); salon_rejoindre(salons[pendingArg].code); }
+        break;
+    case ACT_REJOINDRE_CODE:
+        if (strlen(codeSaisi) == 4) { char n[16]; nom_propre(n, sizeof n); ws_envoyer("nom %s", n); salon_rejoindre(codeSaisi); }
+        else set_status("le code d'un salon a 4 lettres");
+        break;
+    case ACT_LANCER: salon_lancer(); break;
+    case ACT_QUITTER_SALON: ws_envoyer("quitter"); salEtat = SAL_LISTE; salCode[0] = 0; memset(JP, 0, sizeof JP); salListeT = 0; break;
+    case ACT_RETOUR: en_ligne_fermer(); appState = APP_MENU; uiFocus = 0; break;
     }
 }
 
@@ -34,11 +83,34 @@ static int bourdon_main(const char *cmd) {
         snprintf(shotBuf, sizeof shotBuf, "%s", cmd + 7);
         shotBuf[strcspn(shotBuf, " ")] = 0;
         shotPath = shotBuf;
+        carteTest = !strstr(shotPath, "hall") && !strstr(shotPath, "menu");   /* "hall" : le vrai niveau 1 */
+    }
+    {                                                     /* pseudo par defaut : le nom de la session */
+#ifdef _WIN32
+        DWORD un = sizeof monNom;
+        if (!GetUserNameA(monNom, &un) || !monNom[0]) snprintf(monNom, sizeof monNom, "joueur");
+#else
+        struct passwd *pw = getpwuid(getuid());
+        snprintf(monNom, sizeof monNom, "%s", pw && pw->pw_name[0] ? pw->pw_name : "joueur");
+#endif
+        monNom[15] = 0;
     }
     if (cmd && strstr(cmd, "--updated")) updAfter = 1;   /* relance apres une mise a jour */
+    if (cmd && strstr(cmd, "--multi")) {                  /* --multi creer|rejoindre [--serveur h:p] [--nom N] [--temps S] [--log f] */
+        static char args[1024];
+        snprintf(args, sizeof args, "%s", cmd);
+        for (char *t = strtok(args, " "); t; t = strtok(NULL, " ")) {
+            if (!strcmp(t, "--multi") && (t = strtok(NULL, " "))) autoMulti = !strcmp(t, "creer") ? 1 : 2;
+            else if (!strcmp(t, "--serveur") && (t = strtok(NULL, " "))) snprintf(serveur, sizeof serveur, "%s", t);
+            else if (!strcmp(t, "--nom") && (t = strtok(NULL, " "))) snprintf(monNom, sizeof monNom, "%s", t);
+            else if (!strcmp(t, "--temps") && (t = strtok(NULL, " "))) autoTemps = (float)atof(t);
+            else if (!strcmp(t, "--log") && (t = strtok(NULL, " "))) netLog = fopen(t, "w");
+        }
+    }
 
 #ifndef _WIN32
     if (!mac_window_create(winW, winH, "BOURDONNEMENT", 1)) return 1;
+    if (autoMulti) mac_window_place(autoMulti == 1 ? 0 : 820, 40, 800, 450);   /* deux fenetres cote a cote */
     mac_window_size(&winW, &winH);
 #else
     SetProcessDPIAware();
@@ -104,6 +176,20 @@ static int bourdon_main(const char *cmd) {
             asc.alimente = 1; asc.ouverture = 0.7f;
         } else if (strstr(shotPath, "piliers")) { P.pos = P.prevPos = v3(2.5f, 0, 29.5f); P.yaw = P.lampeYaw = PI / 2 - 0.25f; }
         else if (strstr(shotPath, "niveau3")) { niveau_charger_ex(3, 0); for (int i = 0; i < nmon; i++) mon[i].pos = v3(-50, 0, -50); }
+        else if (strstr(shotPath, "hall")) {             /* le vrai niveau 1, au depart, puis l'open space */
+            if (strstr(shotPath, "hall2")) { P.pos = P.prevPos = v3(9.5f, 0, 5.5f); P.yaw = P.lampeYaw = PI / 2 + 0.15f; }
+            if (strstr(shotPath, "hall3")) { P.pos = P.prevPos = v3(2.5f, 0, 14.5f); P.yaw = P.lampeYaw = PI / 2; }
+        }
+        else if (strstr(shotPath, "multi")) {           /* un coequipier, sa lampe, son pseudo */
+            netMode = NET_HOTE; monSlot = 0;
+            P.pos = P.prevPos = v3(2.5f, 0, 27.5f); P.yaw = P.lampeYaw = PI / 2;
+            JP[1].actif = 1; snprintf(JP[1].nom, sizeof JP[1].nom, "Ines");
+            JP[1].st.x = 6.5f; JP[1].st.z = 27.8f; JP[1].st.yaw = JP[1].st.lampeYaw = PI / 2 + 0.25f; JP[1].st.oeil = 165;
+            JP[1].st.flags = JF_LAMPE; JP[1].disp = v3(6.5f, 0, 27.8f);
+            P.lampe = 0;
+        }
+        else if (strstr(shotPath, "enligne")) { appState = APP_EN_LIGNE; nowT = 20; salEtat = SAL_DANS; salHote = 1; snprintf(salCode, sizeof salCode, "HJAK");
+            snprintf(JP[0].nom, 16, "Mathis"); snprintf(JP[1].nom, 16, "Ines"); snprintf(JP[2].nom, 16, "Sami"); }
         else if (strstr(shotPath, "mort")) { screamType = MON_RAMPANTE; mortT = 2; P.dead = 1; }
         render(1, 0.016f);
         save_bmp(shotPath);
@@ -130,6 +216,7 @@ static int bourdon_main(const char *cmd) {
             snprintf(cfgPath, sizeof cfgPath, "%s/Library/Application Support/Bourdonnement/bourdonnement.ini", home);
         } else cfgPath[0] = 0;
 #endif
+        if (autoMulti) cfgPath[0] = 0;                    /* les tests ne touchent pas aux reglages du joueur */
         if (cfg_load()) toggle_fullscreen();
     }
     audio_init();
@@ -169,8 +256,10 @@ static int bourdon_main(const char *cmd) {
         if (fpsAcc > 0.5f) { fps = fpsFrames / fpsAcc; fpsAcc = 0; fpsFrames = 0; }
 
         pad_frame(dt);                                    /* manette : boutons, regard au stick droit, curseur des menus */
-        if (appState == APP_GAME && captured) {
-            if (!P.dead) {                                /* la souris tourne la vue a chaque image, pas a chaque tick */
+        reseau_maj(dt);                                   /* salons et partie en ligne */
+        auto_tick(dt);
+        if (appState == APP_GAME && (captured || netMode != NET_OFF)) {   /* en ligne, pas de pause */
+            if (!P.dead && captured) {                    /* la souris tourne la vue a chaque image, pas a chaque tick */
                 P.yaw += mdx * sens;
                 P.pitch = clampf(P.pitch - mdy * sens * (invertY ? -1.0f : 1.0f), -1.50f, 1.50f);
             }
@@ -181,7 +270,7 @@ static int bourdon_main(const char *cmd) {
             mdx = mdy = 0;
             memset(latch, 0, sizeof latch);
         }
-        render(appState == APP_GAME && captured ? acc / TICK : 1.0f, dt);
+        render(appState == APP_GAME && (captured || netMode != NET_OFF) ? acc / TICK : 1.0f, dt);
         uiClick = 0;                                      /* apres le rendu : les boutons (mode immediat) ont vu le clic */
 #ifdef _WIN32
         SwapBuffers(hdc);

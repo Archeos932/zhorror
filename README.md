@@ -19,6 +19,13 @@ pour Windows, macOS et Linux. Même ossature technique que VELOCITY.
 Les binaires sont dans la branche [`release`](https://github.com/Archeos932/zhorror/tree/release), reconstruits à
 chaque push sur `main`. Ensuite, le bouton **MISE A JOUR** du menu télécharge et installe la nouvelle version tout seul.
 
+## Jouer à plusieurs (2 à 4)
+
+Menu **JOUER EN LIGNE** : choisis ton pseudo, **CRÉER UN SALON** et donne le code de 4 lettres à tes amis (ou ils
+cliquent sur ton salon dans la liste), puis **LANCER LA PARTIE**. Tout passe par le serveur de salons (Cloudflare,
+dossier `worker/`) : rien à ouvrir sur ta box. Les monstres entendent et voient tout le monde ; l'ascenseur part
+quand tous les vivants sont dedans ; si tout le monde est pris, le niveau recommence.
+
 ## Compiler
 
 | Système | Commande | Résultat |

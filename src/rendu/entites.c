@@ -3,7 +3,6 @@
    Pas d'eclairage OpenGL : chaque piece recoit une couleur = base x (lumiere des neons de sa case + lampe si elle
    est dans le faisceau), avec un ombrage par face. La peur vient de la silhouette, pas du detail. */
 
-static V3 camEye;                                         /* oeil de l'image en cours (render) */
 static float lampeK;                                      /* intensite de la lampe pour cette image */
 
 /* lumiere recue en p : neons (fixes + dynamiques proches) + lampe */
@@ -258,11 +257,85 @@ static void dessiner_machoire(const Piege *pg, float t) {
     glPopMatrix();
 }
 
+/* un autre joueur : silhouette en blouson, lampe a la main (faisceau visible dans la poussiere) */
+static const float couleursJ[MAXP][3] = { { 0.25f, 0.3f, 0.45f }, { 0.45f, 0.18f, 0.15f }, { 0.2f, 0.38f, 0.22f }, { 0.4f, 0.35f, 0.15f } };
+static void dessiner_joueur(int k, float t) {
+    Joueur *j = &JP[k];
+    const NetJ *s = &j->st;
+    V3 p = j->disp;
+    float l = lum_entite(v3(p.x, 1.2f, p.z), t) + 0.15f;   /* un peu de "lumiere de jeu" : on voit ses amis */
+    const float *c = couleursJ[k];
+    int mort = (s->flags & JF_MORT) != 0, accroupi = (s->flags & JF_ACCROUPI) != 0;
+    float h = accroupi ? 0.62f : 1.0f, sw = sinf(s->pas * PI * 0.5f + t * 0) * 22;
+    glPushMatrix(); glTranslatef(p.x, 0, p.z); glRotatef(-s->yaw * 180.0f / PI, 0, 1, 0);
+    if (mort) { glTranslatef(0, 0.15f, 0); glRotatef(-90, 1, 0, 0); h = 1; }   /* au sol */
+    for (int sd = -1; sd <= 1; sd += 2) {                 /* jambes */
+        glPushMatrix(); glTranslatef(sd * 0.1f, 0.85f * h, 0); glRotatef(sd * sw, 1, 0, 0);
+        membre(0.85f * h, 0.07f, 0.12f * l, 0.12f * l, 0.14f * l); glPopMatrix();
+    }
+    glPushMatrix(); glTranslatef(0, 0.85f * h + 0.3f, 0); boite(0.2f, 0.3f, 0.12f, c[0] * l, c[1] * l, c[2] * l);   /* blouson */
+    glPushMatrix(); glTranslatef(-0.24f, 0.25f, 0); glRotatef(-sw * 0.6f, 1, 0, 0); membre(0.6f, 0.05f, c[0] * l * 0.9f, c[1] * l * 0.9f, c[2] * l * 0.9f); glPopMatrix();
+    glPushMatrix(); glTranslatef(0.24f, 0.25f, 0);        /* bras droit : tient la lampe devant */
+    glRotatef(-90 - s->lampePitch * 57.3f, 1, 0, 0);
+    membre(0.5f, 0.05f, c[0] * l * 0.9f, c[1] * l * 0.9f, c[2] * l * 0.9f);
+    glTranslatef(0, -0.55f, 0);
+    boite(0.03f, 0.08f, 0.03f, 0.15f * l, 0.15f * l, 0.15f * l);
+    glPopMatrix();
+    glTranslatef(0, 0.42f, 0); glRotatef(-s->pitch * 40, 1, 0, 0);
+    boite(0.1f, 0.12f, 0.11f, 0.55f * l, 0.48f * l, 0.42f * l);   /* tete */
+    glTranslatef(0, 0.08f, 0.01f); boite(0.105f, 0.05f, 0.115f, 0.12f * l, 0.1f * l, 0.08f * l);   /* cheveux / bonnet */
+    glPopMatrix();
+    glPopMatrix();
+    if ((s->flags & JF_LAMPE) && !mort) {                 /* faisceau : un cone tres pale, additif */
+        V3 o = v3(p.x, s->oeil / 100.0f - 0.15f, p.z), f = view_dir(s->lampeYaw, s->lampePitch);
+        V3 r = vnorm(vcross(f, v3(0, 1, 0))), u = vcross(r, f);
+        float L = 6, R = L * tanf(LAMPE_ANGLE * PI / 180.0f) * 0.8f;
+        glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE); glDepthMask(GL_FALSE);
+        glBegin(GL_TRIANGLE_FAN);
+        glColor4f(1, 0.95f, 0.8f, 0.10f); glVertex3f(o.x, o.y, o.z);
+        glColor4f(1, 0.95f, 0.8f, 0.0f);
+        for (int i = 0; i <= 16; i++) {
+            float a = i * 2 * PI / 16;
+            V3 q = vadd(vadd(o, vmul(f, L)), vadd(vmul(r, cosf(a) * R), vmul(u, sinf(a) * R)));
+            glVertex3f(q.x, q.y, q.z);
+        }
+        glEnd();
+        glDepthMask(GL_TRUE); glDisable(GL_BLEND);
+        glDisable(GL_FOG);                                /* la lampe elle-meme, qui brille */
+        glPushMatrix(); glTranslatef(o.x + f.x * 0.45f, o.y + f.y * 0.45f, o.z + f.z * 0.45f); boite(0.025f, 0.025f, 0.025f, 1, 0.97f, 0.85f); glPopMatrix();
+        glEnable(GL_FOG);
+    }
+}
+
+/* prises, interrupteurs, grilles d'aeration : petits volumes eclaires comme le reste */
+static void dessiner_decals(float t) {
+    for (int i = 0; i < ndecals; i++) {
+        const Decal *d = &decals[i];
+        if (fabsf(d->pos.x - camEye.x) > 14 || fabsf(d->pos.z - camEye.z) > 14) continue;
+        float l = lum_entite(d->pos, t);
+        float yaw = atan2f(d->n.x, d->n.z) * 180.0f / PI;
+        glPushMatrix(); glTranslatef(d->pos.x, d->pos.y, d->pos.z); glRotatef(yaw, 0, 1, 0);
+        if (d->type == DECAL_PRISE) {
+            boite(0.04f, 0.04f, 0.006f, 0.78f * l, 0.74f * l, 0.62f * l);
+            for (int s = -1; s <= 1; s += 2) { glPushMatrix(); glTranslatef(s * 0.012f, 0, 0.006f); boite(0.004f, 0.004f, 0.002f, 0.05f, 0.05f, 0.05f); glPopMatrix(); }
+        } else if (d->type == DECAL_INTER) {
+            boite(0.035f, 0.055f, 0.006f, 0.78f * l, 0.74f * l, 0.62f * l);
+            glTranslatef(0, 0.008f, 0.008f); boite(0.01f, 0.018f, 0.004f, 0.7f * l, 0.66f * l, 0.55f * l);
+        } else {
+            boite(0.22f, 0.11f, 0.008f, 0.45f * l, 0.45f * l, 0.43f * l);
+            for (int k = -4; k <= 4; k++) { glPushMatrix(); glTranslatef(0, k * 0.022f, 0.009f); boite(0.2f, 0.006f, 0.003f, 0.08f * l, 0.08f * l, 0.08f * l); glPopMatrix(); }
+        }
+        glPopMatrix();
+    }
+}
+
 static void dessiner_entites(float t) {
     glDisable(GL_TEXTURE_2D);
     glDisable(GL_CULL_FACE);
     fog_scene();
     dessiner_sol(t);
+    dessiner_decals(t);
+    for (int k = 0; k < MAXP; k++) if (netMode != NET_OFF && k != monSlot && JP[k].actif) dessiner_joueur(k, t);
     for (int i = 0; i < nmon; i++) {                      /* les monstres */
         Monstre *m = &mon[i];
         if (!m->actif) continue;

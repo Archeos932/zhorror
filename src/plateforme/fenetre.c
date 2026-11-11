@@ -39,17 +39,29 @@ static int in_key_down(int sc, int repeat) {
         if (sc == SC_ESC) {
             if (uiFocus) uiFocus = 0;
             else if (settingsOpen) { settingsOpen = 0; cfg_save(); }
+            else if (appState == APP_EN_LIGNE) pendingAction = ACT_RETOUR;
             else if (appState == APP_GAME) set_capture(0);   /* pause */
         }
         if (sc == SC_F11) toggle_fullscreen();
     }
+    if (uiFocus && appState != APP_GAME) return 1;        /* on tape du texte : pas d'action de jeu */
     keys[sc] = 1;
     return 0;
 }
 
 static void in_key_up(int sc) { keys[sc] = 0; }
 
-static void in_char(int c) { (void)c; }                   /* saisie de texte (pseudo, code de partie) : etape 4 */
+static void in_char(int c) {                              /* saisie du pseudo (uiFocus 1) et du code de salon (2) */
+    if (!uiFocus) return;
+    char *f = uiFocus == 1 ? monNom : codeSaisi;
+    int cap = uiFocus == 1 ? 15 : 4, len = (int)strlen(f);
+    if (c == 8) { if (len) f[len - 1] = 0; }
+    else if (c == 13) { if (uiFocus == 2 && len == 4) pendingAction = ACT_REJOINDRE_CODE; uiFocus = 0; }
+    else if (uiFocus == 2 && ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) && len < cap) { f[len] = (char)(c & ~32); f[len + 1] = 0; }
+    else if (uiFocus == 1 && len < cap && ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.')) {
+        f[len] = (char)c; f[len + 1] = 0;
+    }
+}
 
 static void in_mouse_move(int x, int y) { uiMX = x; uiMY = y; padCursor = 0; }   /* la souris reprend la main */
 

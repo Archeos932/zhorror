@@ -28,6 +28,9 @@ jobs:
           Bourdonnement-Linux/bourdonnement --test test.txt || { cat test.txt; exit 1; }
           cat test.txt
 
+      - name: Tests du serveur de salons (worker/)
+        run: cd worker && node test.js
+
       - uses: actions/upload-artifact@v4
         with:
           name: Bourdonnement-Linux

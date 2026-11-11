@@ -1,0 +1,11 @@
+name = "bourdonnement-salons"
+main = "src/index.js"
+compatibility_date = "2025-04-01"
+
+[[durable_objects.bindings]]
+name = "SALONS"
+class_name = "Salons"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Salons"]

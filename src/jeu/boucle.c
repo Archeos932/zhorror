@@ -15,13 +15,13 @@ static void game_tick(float dt) {
     input_poll();
     if (carton_tick(dt)) { P.prevPos = P.pos; return; }   /* texte a l'ecran : le monde attend */
     gameT += dt;
-    if (screamT < 0 && mortT < 0) {
-        player_tick(dt);
-        monstres_tick(dt, gameT);
-        objectif_tick(dt);
-    } else {
-        P.prevPos = P.pos;
-    }
+    if (screamT < 0 && mortT < 0) player_tick(dt);
+    else P.prevPos = P.pos;
+    if (netMode == NET_CLIENT) monstres_client_tick(dt);  /* en ligne, c'est l'hote qui fait bouger les monstres */
+    else monstres_tick(dt, gameT);
+    objectif_tick(dt);
+    joueurs_tick(dt);
+    reseau_hote_tick(dt);
     ecoutePos = P.pos; ecouteYaw = P.yaw;
     peur_tick(dt);
     for (int i = 0; i < nneons; i++) {                    /* les neons fous gresillent quand ils lachent */

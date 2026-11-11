@@ -45,8 +45,22 @@ static void dechirures(float t, int n) {
     glEnd();
 }
 
+/* pseudos au-dessus des autres joueurs (s'ils sont en vue) */
+static void draw_noms(void) {
+    for (int k = 0; k < MAXP; k++) {
+        if (netMode == NET_OFF || k == monSlot || !JP[k].actif) continue;
+        V3 p = v3(JP[k].disp.x, 2.05f, JP[k].disp.z);
+        float d = vlen(vsub(p, camEye)), sx, sy;
+        if (d > 18 || !visible_xz(camEye.x, camEye.z, p.x, p.z) || !projeter(p, &sx, &sy)) continue;
+        float a = clampf(1.4f - d / 12, 0.25f, 1);
+        int mort = (JP[k].st.flags & JF_MORT) != 0;
+        text_c(0, sx, sy, JP[k].nom, mort ? 0.7f : couleursJ[k][0] + 0.45f, mort ? 0.2f : couleursJ[k][1] + 0.45f, mort ? 0.2f : couleursJ[k][2] + 0.45f, a);
+    }
+}
+
 static void draw_hud(float t) {
     char b[96];
+    draw_noms();
     if (fusPris < nfus) snprintf(b, sizeof b, "FUSIBLES  %d / %d", fusPris, nfus);   /* objectif, discret */
     else snprintf(b, sizeof b, "L'ASCENSEUR");
     text(0, 28, 44, b, 0.75f, 0.72f, 0.6f, 0.5f);
@@ -126,14 +140,19 @@ static void render(float alpha, float frameDt) {
     }
     V3 eye;
     float yaw, pitch, roll = 0, fov = FOV_V;
-    if (appState == APP_GAME) {
+    if (appState == APP_GAME && spectateur() >= 0) {      /* mort en ligne : on regarde par les yeux d'un autre */
+        Joueur *j = &JP[spectateur()];
+        eye = v3(j->disp.x, j->st.oeil / 100.0f, j->disp.z);
+        yaw = j->st.yaw; pitch = j->st.pitch;
+        lampeK = 0;
+    } else if (appState == APP_GAME) {
         eye = player_eye(alpha, &roll);
         yaw = P.yaw; pitch = P.pitch;
         fov += FOV_COURSE * P.courseK - coeurPouls * clampf((bpm - 60) / 130.0f, 0, 1) * 1.8f;   /* la vue bat avec le coeur */
         if (tension > 0.6f) roll += sinf(t * 2.1f) * (tension - 0.6f) * 2;   /* poursuite : la vue tangue */
         if (P.piegeT > 0) { pitch -= 0.35f; roll += sinf(t * 25) * 2; }   /* pris : on regarde sa jambe */
         lampeK = lampe_intensite(t);
-    } else {                                              /* menu : on regarde le hall, sans lampe */
+    } else {                                              /* menus : on regarde le hall, sans lampe */
         eye = v3(carteDepart.x, 1.6f, carteDepart.z);
         yaw = carteDepartYaw + sinf(t * 0.07f) * 0.5f; pitch = -0.05f + sinf(t * 0.05f) * 0.04f;
         lampeK = 0;
@@ -176,6 +195,7 @@ static void render(float alpha, float frameDt) {
     float pouls = coeurPouls * clampf((bpm - 80) / 100.0f, 0, 1);
     vignette(0.6f + 0.3f * tension + 0.25f * pouls);
     if (appState == APP_MENU) { vhs((float)nowT, 0.1f); draw_title(t); }
+    else if (appState == APP_EN_LIGNE) { vhs((float)nowT, 0.1f); draw_en_ligne(); draw_statut(); }
     else {
         if (tension > 0.3f) {                             /* poursuite : les bords battent en rouge sombre */
             float p = (tension - 0.3f) * (0.4f + 0.6f * coeurPouls);
@@ -188,6 +208,11 @@ static void render(float alpha, float frameDt) {
             float f = fmodf(screamT, 0.1f) < 0.05f ? 1.0f : 0.0f;
             if (screamT < 0.6f && flashsOn) rect(0, 0, (float)winW, (float)winH, 0.55f * f + 0.05f, 0, 0, 0.3f);   /* flashs rouge sang */
             if (screamT > SCREAMER_MORT_T - 0.4f) rect(0, 0, (float)winW, (float)winH, 0, 0, 0, (screamT - (SCREAMER_MORT_T - 0.4f)) * 2.5f);
+        } else if (mortT >= 0 && spectateur() >= 0) {   /* en ligne : on regarde les autres */
+            draw_noms();
+            char b[80]; snprintf(b, sizeof b, "TU OBSERVES %s   -   [E] suivant", JP[spectateur()].nom);
+            text_c(0, winW * 0.5f, winH - 70.0f, b, 0.75f, 0.3f, 0.25f, 0.9f);
+            text_c(0, winW * 0.5f, winH - 44.0f, "le niveau recommence si tout le monde est pris", 0.5f, 0.46f, 0.4f, 0.8f);
         } else if (mortT >= 0) {
             rect(0, 0, (float)winW, (float)winH, 0, 0, 0, 1);
             vhs(t, 0.5f);
@@ -195,7 +220,7 @@ static void render(float alpha, float frameDt) {
             float a = fminf(1, mortT);
             text_c(2, winW * 0.5f, winH * 0.42f, texteMort[screamType], 0.75f, 0.08f, 0.05f, a);
             text_c(0, winW * 0.5f, winH * 0.42f + 50, texteConseil[screamType], 0.55f, 0.5f, 0.45f, a * 0.8f);
-            if (mortT > 1.5f) text_c(0, winW * 0.5f, winH * 0.42f + 90, "[E] recommencer le niveau", 0.6f, 0.55f, 0.5f, a * 0.8f);
+            if (mortT > 1.5f) text_c(0, winW * 0.5f, winH * 0.42f + 90, netMode == NET_OFF ? "[E] recommencer le niveau" : "les autres sont encore la...", 0.6f, 0.55f, 0.5f, a * 0.8f);
         } else {
             if (subliminalT >= 0) dechirures(t, 8);
             draw_vhs_overlay(t);

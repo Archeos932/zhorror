@@ -9,7 +9,8 @@
    Case (gx, gz) = x dans [gx, gx + 1], z dans [gz, gz + 1]. Sol en y = 0, plafond en y = HAUT_PLAFOND. */
 
 #define CARTE_MAX 96
-static unsigned char grille[CARTE_MAX][CARTE_MAX];        /* [gz][gx] : 1 = mur */
+static unsigned char grille[CARTE_MAX][CARTE_MAX];        /* [gz][gx] : 0 libre, 1 mur, 2 cloison basse (MURET_H) */
+#define MURET_H 1.1f                                      /* cloison de bureau : on voit par-dessus, on ne passe pas */
 static unsigned char sansNeon[CARTE_MAX][CARTE_MAX];      /* jamais de neon ici (zone noire) */
 static int carteW, carteH;
 static V3 carteDepart;
@@ -45,6 +46,14 @@ static int nfus;
 static int cell_mur(int gx, int gz) {
     if (gx < 0 || gz < 0 || gx >= carteW || gz >= carteH) return 1;
     return grille[gz][gx];
+}
+/* la vue, la lumiere et le son passent au-dessus des cloisons basses */
+static int cell_opaque(int gx, int gz) {
+    if (gx < 0 || gz < 0 || gx >= carteW || gz >= carteH) return 1;
+    return grille[gz][gx] == 1;
+}
+static int cell_muret(int gx, int gz) {
+    return gx >= 0 && gz >= 0 && gx < carteW && gz < carteH && grille[gz][gx] == 2;
 }
 /* pour se deplacer : la cabine est fermee tant que les portes ne sont pas ouvertes */
 static int cell_bloque(int gx, int gz) {
@@ -123,8 +132,10 @@ static void placer_neons(void) {
         }
 }
 
+static float ray_grille(float ox, float oz, float dx, float dz, float maxt);   /* plus bas */
+
 /* Carte en texte : '#' mur, '.' sol (neon automatique), ',' sol sans neon, 'n' neon force, 'f' neon qui clignote,
-   'x' neon mort, 'P' depart du joueur (regarde vers -z), 'F' fusible, 'E' cabine d'ascenseur,
+   'x' neon mort, 'P' depart du joueur (regarde vers -z), 'F' fusible, 'E' cabine d'ascenseur, '=' cloison basse,
    '~' flaque, '%' verre brise, 'M' machoire de loup, 'A' faux fusible (alarme). */
 static void carte_charger(const char *const *lignes, int n) {
     int w = 0;
@@ -135,7 +146,7 @@ static void carte_charger(const char *const *lignes, int n) {
         int l = (int)strlen(lignes[z]);
         for (int x = 0; x < carteW; x++) {
             char c = x < l ? lignes[z][x] : '#';          /* ligne courte : completee par des murs */
-            grille[z][x] = c == '#';
+            grille[z][x] = c == '#' ? 1 : c == '=' ? 2 : 0;
             if (c == ',') sansNeon[z][x] = 1;
             if (c == 'P') carteDepart = v3(x + 0.5f, 0, z + 0.5f);
             if (c == 'F') add_fusible(x, z);
@@ -151,6 +162,11 @@ static void carte_charger(const char *const *lignes, int n) {
     }
     if (ex >= 0) poser_ascenseur(ex, ez);
     placer_neons();
+    float bestL = -1;                                     /* au depart, on regarde vers la plus longue ouverture */
+    for (int k = 0; k < 4; k++) {
+        float l = ray_grille(carteDepart.x, carteDepart.z, (float)cotes[k][0], (float)cotes[k][1], 40);
+        if (l > bestL + 0.5f) { bestL = l; carteDepartYaw = atan2f((float)cotes[k][0], -(float)cotes[k][1]); }
+    }
 }
 
 /* etat d'un neon a l'instant t : 1 allume, 0 eteint. Un neon fou a de longues periodes calmes puis "saute" */
@@ -171,7 +187,7 @@ static int neon_dynamique(int i) { return neons[i].etat == NEON_FOU || neons[i].
    direction (si elle vient d'un vecteur 3D norme, t = distance 3D). Renvoie le t du premier mur, ou maxt. */
 static float ray_grille(float ox, float oz, float dx, float dz, float maxt) {
     int gx = (int)floorf(ox), gz = (int)floorf(oz);
-    if (cell_mur(gx, gz)) return 0;
+    if (cell_opaque(gx, gz)) return 0;
     int sx = dx > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1;
     float adx = fabsf(dx), adz = fabsf(dz);
     float tdx = adx > 1e-9f ? 1.0f / adx : 1e30f, tdz = adz > 1e-9f ? 1.0f / adz : 1e30f;
@@ -181,7 +197,7 @@ static float ray_grille(float ox, float oz, float dx, float dz, float maxt) {
         float t;
         if (tmx < tmz) { t = tmx; if (t > maxt) return maxt; gx += sx; tmx += tdx; }
         else { t = tmz; if (t > maxt) return maxt; gz += sz; tmz += tdz; }
-        if (cell_mur(gx, gz)) return t;
+        if (cell_opaque(gx, gz)) return t;
     }
 }
 

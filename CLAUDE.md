@@ -66,4 +66,20 @@ Le propriétaire est francophone : réponses, commentaires et docs **en françai
   **Pousser sur `main` = publier chez tous les joueurs.**
 - Captures `--shot` : `menu`, `param`, `jeu`, `noir`, `flaque`, `piege`, `rodeur`, `locataire`, `rampante`,
   `screamer`, `mort`, `carton`, `ascenseur`, `piliers`, `niveau3`.
-- **Pas encore** : réseau (étape 4).
+- **En ligne** (étape 4, faite autrement que VELOCITY : tout passe par le serveur, pas d'UDP direct) :
+  - serveur de salons `worker/` (Cloudflare Worker + Durable Object hibernable) : logique pure dans
+    `worker/src/salons.js`, testée par `node worker/test.js` ; serveur local `node worker/dev-server.js 8787` ;
+    déploiement **par le propriétaire** : `cd worker && npx wrangler login && npx wrangler deploy` →
+    `bourdonnement-salons.velocity-void.workers.dev` (`SERVEUR_DEFAUT`, `serveur=` dans bourdonnement.ini) ;
+  - jeu : `src/reseau/ws.c` (WebSocket, fils), `src/reseau/joueurs.c` (`JP[]`, `NetJ`, cibles des monstres
+    `cib[]`), `src/reseau/reseau.c` (salons, `PaquetJ` client→hôte et `Snap` hôte→tous à 15/s ; événements déduits
+    des différences d'instantanés ; **`RESEAU_VER`++ à chaque changement de paquet**) ;
+  - l'hôte simule monstres, pièges, fusibles, ascenseur, morts (`mortHote`), niveau (`essaiNiveau`) ;
+    les clients appliquent l'instantané (`snap_appliquer`) et rejouent les monstres (`monstres_client_tick`) ;
+  - test de bout en bout sur une machine : serveur local, puis
+    `bourdonnement --multi creer --serveur 127.0.0.1:8787 --nom A --temps 30 --log a.txt` et
+    `bourdonnement --multi rejoindre --serveur 127.0.0.1:8787 --nom B --temps 28 --log b.txt` (2 s après).
+- **Décor** : plinthes, corniches, linteaux (`LINTEAU_Y`), cloisons basses (`'='`, `grille` = 2 : bloquent le
+  passage, pas la vue / la lumière / le son : `cell_opaque` vs `cell_mur`), dalles arrachées, `decals[]`.
+- Cartes faites à la main (`niveau_essai.c`) : `niveauUn` (le vrai niveau 1) et `niveauTest` (tests et captures,
+  `carteTest = 1` : ses coordonnées sont utilisées partout dans les tests ; capture `hall*` = niveau 1).

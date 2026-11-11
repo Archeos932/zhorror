@@ -53,10 +53,11 @@ static void generer_niveau(unsigned graine, int w, int h) {
         }
     for (int k = 0; k < w * h / 45; k++) {                /* bouts de murs (cloisons de bureaux), sans jamais couper */
         int x = 2 + irand(w - 4), z = 2 + irand(h - 4), dir = irand(2), len = 2 + irand(4), pose[6][2], np = 0;
+        int typeMur = frand() < 0.45f ? 2 : 1;            /* pres d'une fois sur deux : cloison basse de bureau */
         for (int s = 0; s < len; s++) {
             int px = x + (dir ? s : 0), pz = z + (dir ? 0 : s);
             if (px >= carteW - 1 || pz >= carteH - 1 || grille[pz][px] || abs(px - sx) + abs(pz - sz) <= 2) continue;
-            grille[pz][px] = 1; pose[np][0] = px; pose[np][1] = pz; np++;
+            grille[pz][px] = (unsigned char)typeMur; pose[np][0] = px; pose[np][1] = pz; np++;
         }
         if (!np) continue;
         int n = 0;
@@ -76,7 +77,7 @@ static void generer_niveau(unsigned graine, int w, int h) {
         int best = -1, bx = 0, bz = 0;
         for (int z = 1; z < carteH - 1; z++)
             for (int x = 1; x < carteW - 1; x++) {
-                if (!grille[z][x]) continue;
+                if (grille[z][x] != 1) continue;
                 int libres = 0, d = -1;
                 for (int k = 0; k < 4; k++) {
                     int nx = x + cotes[k][0], nz = z + cotes[k][1];

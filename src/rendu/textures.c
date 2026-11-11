@@ -3,9 +3,9 @@
    Morceau de main.c : inclus dans l'ordre, ne se compile pas seul (voir main.c).
    Bruit de valeur periodique : chaque texture se repete sans couture. Mipmaps faits main (repris de VELOCITY). */
 
-enum { MAT_MOQUETTE, MAT_PAPIER, MAT_PLAFOND, MAT_COUNT };
+enum { MAT_MOQUETTE, MAT_PAPIER, MAT_PLAFOND, MAT_PLINTHE, MAT_CORNICHE, MAT_CLOISON, MAT_COUNT };
 static GLuint texMat[MAT_COUNT], texNeon, texLampe, texMetal;
-static const float matEchelle[MAT_COUNT] = { 0.5f, 0.5f, 1.0f / 2.4f };   /* repetitions par metre */
+static const float matEchelle[MAT_COUNT] = { 0.5f, 0.5f, 1.0f / 2.4f, 1.0f, 1.0f, 0.5f };   /* repetitions par metre */
 
 static float tex_h(int x, int y, unsigned s) {
     return (float)(hash32((unsigned)x * 73856093u ^ (unsigned)y * 19349663u ^ s) & 0xffff) / 65535.0f;
@@ -117,6 +117,40 @@ static void make_textures(void) {
             px_set(img, N, x, y, r * k, g * k, b * k);
         }
     upload_rgb_mip(&texMat[MAT_PLAFOND], img, N);
+
+    /* plinthe : vinyle brun, rayures de chaussures, poussiere */
+    for (int y = 0; y < N; y++)
+        for (int x = 0; x < N; x++) {
+            float u = (float)x / N, v = (float)y / N;
+            float k = 0.85f + 0.15f * fbm(u, v, 8, 2, 101);
+            if (tex_h(x / 2, y / 40, 103) < 0.03f) k *= 0.7f;   /* eraflures */
+            if (fmodf(v * 8, 1.0f) < 0.06f) k *= 0.8f;    /* moulure */
+            px_set(img, N, x, y, 0.33f * k, 0.25f * k, 0.16f * k);
+        }
+    upload_rgb_mip(&texMat[MAT_PLINTHE], img, N);
+
+    /* corniche : platre blanc casse, jauni */
+    for (int y = 0; y < N; y++)
+        for (int x = 0; x < N; x++) {
+            float u = (float)x / N, v = (float)y / N;
+            float k = 0.9f + 0.1f * fbm(u, v, 8, 2, 107);
+            if (fmodf(v * 4, 1.0f) < 0.12f) k *= 0.82f;
+            px_set(img, N, x, y, 0.84f * k, 0.8f * k, 0.66f * k);
+        }
+    upload_rgb_mip(&texMat[MAT_CORNICHE], img, N);
+
+    /* cloison de bureau : tissu gris-bleu, trame, taches */
+    for (int y = 0; y < N; y++)
+        for (int x = 0; x < N; x++) {
+            float u = (float)x / N, v = (float)y / N;
+            float k = 0.82f + 0.12f * tex_h(x, y, 109) + 0.08f * ((x + y) % 4 < 2);
+            k *= 0.9f + 0.14f * fbm(u, v, 4, 3, 113);
+            if (fbm(u, v, 3, 3, 127) > 0.64f) k *= 0.8f;
+            float bord = fminf(u, 1 - u);
+            if (bord < 0.02f) k *= 0.55f;                 /* montant metallique tous les 2 m */
+            px_set(img, N, x, y, 0.36f * k, 0.38f * k, 0.42f * k);
+        }
+    upload_rgb_mip(&texMat[MAT_CLOISON], img, N);
 
     /* diffuseur de neon : blanc chaud, cadre metallique, petits prismes */
     for (int y = 0; y < N; y++)

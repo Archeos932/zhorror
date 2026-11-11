@@ -29,11 +29,14 @@
 #include "src/son/son3d.c"                       /* son 3D : distance, gauche / droite, etouffe derriere les murs */
 
 #include "src/joueur/mouvement.c"                /* joueur : marche, course, penche, bruit, lampe */
+#include "src/reseau/joueurs.c"                  /* les joueurs de la partie, cibles des monstres */
 #include "src/monstres/monstres.c"               /* Rodeur (bruit), Locataire (noir), Rampante (lumiere) */
 #include "src/jeu/textes.c"                      /* textes de l'histoire (genere par outils/textes.py) */
 #include "src/jeu/histoire.c"                    /* cartons tapes a la machine, messages radio */
 #include "src/jeu/niveaux.c"                     /* niveaux, monstres par niveau, pieges, fusibles, ascenseur */
 #include "src/jeu/screamers.c"                   /* peur : screamers, apparitions, coeur, drone */
+#include "src/reseau/ws.c"                       /* WebSocket vers le serveur de salons (Cloudflare) */
+#include "src/reseau/reseau.c"                   /* salons, etats, instantanes de l'hote */
 #include "src/jeu/boucle.c"                      /* game_tick (un pas de simulation), ambiance */
 
 #include "src/rendu/base.c"                      /* polices, camera, passage en 2D */

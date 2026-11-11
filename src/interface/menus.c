@@ -94,6 +94,68 @@ static void draw_settings(void) {
     button(cx, y, "RETOUR", ACT_FERMER_PARAM);
 }
 
+/* champ de saisie : clic pour ecrire (focus = numero du champ) */
+static void champ(float x, float y, float w, const char *label, const char *val, int focus) {
+    int over = uiMX >= x && uiMX < x + w && uiMY >= y && uiMY < y + 40;
+    if (over && uiClick) uiFocus = focus;
+    text(0, x, y - 8, label, 0.6f, 0.58f, 0.5f, 1);
+    rect(x, y, w, 40, 0.1f, 0.09f, 0.06f, 0.9f);
+    rect(x, y + 38, w, 2, uiFocus == focus ? 0.95f : 0.5f, uiFocus == focus ? 0.88f : 0.45f, 0.4f, 1);
+    char b[48];
+    snprintf(b, sizeof b, "%s%s", val, uiFocus == focus && fmodf((float)nowT, 1) < 0.5f ? "_" : "");
+    text(1, x + 12, y + 30, b, 0.95f, 0.9f, 0.7f, 1);
+}
+
+/* JOUER EN LIGNE : salons du serveur Cloudflare */
+static void draw_en_ligne(void) {
+    float cx = winW * 0.5f, y = winH * 0.13f;
+    char b[96];
+    rect(0, 0, (float)winW, (float)winH, 0, 0, 0, 0.8f);
+    text_c(2, cx, y, "EN LIGNE", 0.9f, 0.85f, 0.6f, 1);
+    y += 40;
+    if (salEtat == SAL_CONNEXION) { text_c(0, cx, y + 40, "connexion au serveur...", 0.7f, 0.66f, 0.55f, 1); button(cx, winH - 120.0f, "RETOUR", ACT_RETOUR); return; }
+    if (salEtat == SAL_DANS) {                            /* dans un salon : qui est la, et l'hote lance */
+        text_c(0, cx, y + 20, "CODE DU SALON (a donner a tes amis)", 0.6f, 0.58f, 0.5f, 1);
+        text_c(2, cx, y + 80, salCode, 1.0f, 0.9f, 0.5f, 1);
+        y += 130;
+        for (int k = 0; k < MAXP; k++) {
+            if (!JP[k].nom[0]) continue;
+            snprintf(b, sizeof b, "%s%s%s", JP[k].nom, k == 0 ? "  (hote)" : "", k == monSlot ? "  <- toi" : "");
+            text_c(1, cx, y, b, 0.85f, 0.8f, 0.65f, 1);
+            y += 40;
+        }
+        y = winH * 0.66f;
+        if (salHote) button(cx, y, "LANCER LA PARTIE", ACT_LANCER);
+        else text_c(0, cx, y + 30, "en attente de l'hote...", 0.7f, 0.66f, 0.55f, fmodf((float)nowT, 1.4f) < 1 ? 1.0f : 0.5f);
+        button(cx, y + 64, "QUITTER LE SALON", ACT_QUITTER_SALON);
+        return;
+    }
+    champ(cx - 320, y + 30, 300, "TON PSEUDO", monNom, 1);
+    champ(cx + 20, y + 30, 160, "CODE", codeSaisi, 2);
+    {
+        float bx = cx + 200, by = y + 30;
+        int over = uiMX >= bx && uiMX < bx + 120 && uiMY >= by && uiMY < by + 40;
+        rect(bx, by, 120, 40, 0.85f, 0.78f, 0.38f, over ? 0.25f : 0.1f);
+        text_c(0, bx + 60, by + 26, "REJOINDRE", 0.9f, 0.85f, 0.6f, 1);
+        if (over && uiClick) { pendingAction = ACT_REJOINDRE_CODE; play(S_CLIC, 0.6f, 1.0f); }
+    }
+    y += 100;
+    button(cx, y, "CREER UN SALON", ACT_CREER);
+    y += 70;
+    text_c(0, cx, y, nsalons ? "SALONS OUVERTS (clique pour rejoindre)" : "aucun salon ouvert pour l'instant", 0.6f, 0.58f, 0.5f, 1);
+    y += 16;
+    for (int i = 0; i < nsalons && i < 6; i++) {
+        float x = cx - 300, w = 600, h = 40;
+        int over = uiMX >= x && uiMX < x + w && uiMY >= y && uiMY < y + h;
+        rect(x, y, w, h, 0.85f, 0.78f, 0.38f, over ? 0.18f : 0.06f);
+        snprintf(b, sizeof b, "%s   -   %s   %d/%d%s", salons[i].code, salons[i].hote, salons[i].n, salons[i].max, salons[i].enJeu ? "   (en jeu)" : "");
+        text(0, x + 16, y + 27, b, 0.9f, 0.85f, 0.65f, 1);
+        if (over && uiClick) { pendingAction = ACT_REJOINDRE; pendingArg = i; play(S_CLIC, 0.6f, 1.0f); }
+        y += h + 6;
+    }
+    button(cx, winH - 110.0f, "RETOUR", ACT_RETOUR);
+}
+
 static void draw_title(float t) {
     float cx = winW * 0.5f;
     rect_vgrad(0, 0, (float)winW, (float)winH, 0, 0, 0, 0.35f, 0.85f);
@@ -101,8 +163,9 @@ static void draw_title(float t) {
     float flick = (fmodf(t, 4.1f) > 3.95f) ? 0.35f : 1.0f;   /* le titre "grille" de temps en temps */
     text_c(2, cx, winH * 0.26f, "BOURDONNEMENT", 0.95f * flick, 0.88f * flick, 0.55f * flick, 1);
     text_c(0, cx, winH * 0.26f + 40, "Noe est entre aux Quatre Vents. Il n'est jamais ressorti.", 0.7f, 0.68f, 0.6f, 0.9f);
-    float y = winH * 0.40f;
-    button(cx, y, "ENTRER", ACT_JOUER); y += 60;
+    float y = winH * 0.37f;
+    button(cx, y, "ENTRER (SOLO)", ACT_JOUER); y += 60;
+    button(cx, y, "JOUER EN LIGNE", ACT_EN_LIGNE); y += 60;
     button(cx, y, "PARAMETRES", ACT_PARAM); y += 60;
     button(cx, y, upd_label(), ACT_MAJ); y += 60;
     button(cx, y, fullscreen ? "FENETRE" : "PLEIN ECRAN", ACT_PLEIN_ECRAN); y += 60;

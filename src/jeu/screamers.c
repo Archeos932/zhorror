@@ -38,9 +38,9 @@ static float lampe_intensite(float t) {
     return k;
 }
 
-static void mort_commencer(void) {
+static void mort_commencer(int type) {
     P.dead = 1; screamT = 0;
-    screamType = tueur >= 0 ? mon[tueur].type : MON_RODEUR;
+    screamType = type;
     play(S_HURLEMENT, 1.4f, 1.0f);                        /* trois hurlements empiles + l'impact */
     play(S_HURLEMENT, 1.0f, 0.71f);
     play(S_HURLEMENT, 0.7f, 1.41f);
@@ -50,7 +50,7 @@ static void mort_commencer(void) {
 }
 
 static void peur_tick(float dt) {
-    if (tueur >= 0 && !P.dead) mort_commencer();
+    if (tueur >= 0 && !P.dead) mort_commencer(mon[tueur].type);
     if (subliminalT >= 0 && (subliminalT += dt) > 0.07f) subliminalT = -1;
     if (screamT >= 0) {
         screamT += dt;
@@ -59,7 +59,8 @@ static void peur_tick(float dt) {
     }
     if (mortT >= 0) {
         mortT += dt;
-        if (mortT > 1.5f && (actP[A_UTILISER] || actP[A_CRIER])) niveau_charger_ex(niveauNum, 0);
+        if (netMode == NET_OFF && mortT > 1.5f && (actP[A_UTILISER] || actP[A_CRIER])) niveau_charger_ex(niveauNum, 0);
+        if (netMode != NET_OFF && mortT > 2.5f && actP[A_UTILISER]) spectateurK += 1;   /* en ligne : regarder un autre */
         return;
     }
     float d;
@@ -100,7 +101,7 @@ static void peur_tick(float dt) {
             play(S_STINGER, 1.1f, 0.95f + 0.1f * frand());
             sursauter(BPM_SURSAUT);
             apparitionProchaine = APPARITION_MIN + frand() * (APPARITION_MAX - APPARITION_MIN);
-            if (mon[0].type == MON_RODEUR && frand() < 0.5f) { mon_etat(&mon[0], E_ENQUETE, 0); mon_viser(&mon[0], P.pos); }   /* et le vrai arrive */
+            if (netMode != NET_CLIENT && mon[0].type == MON_RODEUR && frand() < 0.5f) { mon_etat(&mon[0], E_ENQUETE, 0); mon_viser(&mon[0], P.pos); }   /* et le vrai arrive */
         }
     }
     if (flashsOn && (subliminalProchain -= dt * (0.3f + tension)) <= 0) {   /* deux images du visage, a peine vues */

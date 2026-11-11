@@ -219,6 +219,46 @@ static void monde_draw(float t, float lampe, float dyaw, float dpitch) {
             glCallList(listeMonde);
             glColor3f(1, 1, 1);
         }
+        for (int k = 0; k < MAXP; k++) {                  /* les lampes des autres joueurs eclairent aussi */
+            Joueur *j = &JP[k];
+            if (netMode == NET_OFF || k == monSlot || !j->actif || !(j->st.flags & JF_LAMPE) || (j->st.flags & JF_MORT)) continue;
+            V3 lp = v3(j->disp.x, j->st.oeil / 100.0f - 0.15f, j->disp.z), f = view_dir(j->st.lampeYaw, j->st.lampePitch);
+            if (vlen(vsub(lp, camEye)) > 30) continue;
+            GLdouble eq[4] = { f.x, f.y, f.z, -(f.x * lp.x + f.y * lp.y + f.z * lp.z) - 0.2 };   /* rien derriere sa lampe */
+            glClipPlane(GL_CLIP_PLANE0, eq);
+            glEnable(GL_CLIP_PLANE0);
+            mtActive(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, texLampe);
+            glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_MODULATE);
+            glTexEnvf(GL_TEXTURE_ENV, GL_RGB_SCALE, 2.0f);
+            GLfloat ps[4] = { 1, 0, 0, 0 }, pt[4] = { 0, 1, 0, 0 }, pr[4] = { 0, 0, 1, 0 }, pq[4] = { 0, 0, 0, 1 };
+            glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
+            glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_EYE_LINEAR); glTexGenfv(GL_S, GL_EYE_PLANE, ps);
+            glTexGeni(GL_T, GL_TEXTURE_GEN_MODE, GL_EYE_LINEAR); glTexGenfv(GL_T, GL_EYE_PLANE, pt);
+            glTexGeni(GL_R, GL_TEXTURE_GEN_MODE, GL_EYE_LINEAR); glTexGenfv(GL_R, GL_EYE_PLANE, pr);
+            glTexGeni(GL_Q, GL_TEXTURE_GEN_MODE, GL_EYE_LINEAR); glTexGenfv(GL_Q, GL_EYE_PLANE, pq);
+            glPopMatrix();
+            glEnable(GL_TEXTURE_GEN_S); glEnable(GL_TEXTURE_GEN_T); glEnable(GL_TEXTURE_GEN_R); glEnable(GL_TEXTURE_GEN_Q);
+            glMatrixMode(GL_TEXTURE); glLoadIdentity();   /* oeil local -> monde -> lampe de l'autre -> image */
+            glTranslatef(0.5f, 0.5f, 0); glScalef(0.5f, 0.5f, 1);
+            float a = tanf(LAMPE_ANGLE * PI / 180.0f);
+            glFrustum(-a, a, -a, a, 1, 100);
+            glRotatef(-j->st.lampePitch * 180.0f / PI, 1, 0, 0);
+            glRotatef(j->st.lampeYaw * 180.0f / PI, 0, 1, 0);
+            glTranslatef(-lp.x, -lp.y, -lp.z);
+            glTranslatef(camEye.x, camEye.y, camEye.z);
+            glRotatef(-camYaw * 180.0f / PI, 0, 1, 0);
+            glRotatef(camPitch * 180.0f / PI, 1, 0, 0);
+            glRotatef(-camRoll, 0, 0, 1);
+            glMatrixMode(GL_MODELVIEW);
+            mtActive(GL_TEXTURE0);
+            glFogi(GL_FOG_MODE, GL_EXP);
+            glFogf(GL_FOG_DENSITY, LAMPE_PORTEE_FOG);
+            glColor3f(0.7f, 0.7f, 0.7f);
+            glCallList(listeMonde);
+            glColor3f(1, 1, 1);
+            glDisable(GL_CLIP_PLANE0);
+        }
         unite1_off();
         glDepthMask(GL_TRUE); glDepthFunc(GL_LESS);
         glDisable(GL_BLEND);

@@ -12,12 +12,14 @@ typedef struct {
     V3 pos, prevPos, cible;
     float yaw, etatT, repathT, oubliT, pasDist, anim, vitK, bloqueT, vivT, sonT;
     int souffle;                                          /* voix en boucle (respiration, raclement) */
+    int proie;                                            /* la cible (place du joueur) qu'il poursuit */
     short dist[CARTE_MAX][CARTE_MAX];                     /* distances vers sa cible : il descend la pente */
 } Monstre;
 #define MAXMON 4
 static Monstre mon[MAXMON];
 static int nmon;
 static int tueur = -1;                                    /* le monstre qui vient d'attraper le joueur */
+static int monstresEveilles = 1;                          /* niveau 1 : il dort jusqu'au premier fusible (niveaux.c) */
 
 static float dist_xz(V3 a, V3 b) { float dx = a.x - b.x, dz = a.z - b.z; return sqrtf(dx * dx + dz * dz); }
 
@@ -40,15 +42,19 @@ static int case_autour(V3 p, float rmin, float rmax, V3 *out) {
     return 0;
 }
 
-/* le faisceau de la lampe touche-t-il p ? (allumee, dans le cone, pas de mur, a portee) */
-static int dans_faisceau(V3 p) {
-    if (!P.lampe || P.batterie <= 0) return 0;
-    V3 eye = v3(P.pos.x, P.oeil, P.pos.z), to = vsub(v3(p.x, 1.2f, p.z), eye);
+/* le faisceau d'une lampe (celle de n'importe quel joueur) touche-t-il p ? */
+static int faisceau_de(const Cible *c, V3 p) {
+    if (!c->actif || c->mort || !c->lampe) return 0;
+    V3 eye = v3(c->pos.x, c->oeil, c->pos.z), to = vsub(v3(p.x, 1.2f, p.z), eye);
     float d = vlen(to);
     if (d > LAMPE_PORTEE) return 0;
     if (d < 0.8f) return 1;
-    float c = vdot(view_dir(P.lampeYaw, P.lampePitch), to) / d;
-    return c > cosf((LAMPE_ANGLE + 4) * PI / 180.0f) && visible_xz(eye.x, eye.z, p.x, p.z);
+    float cc = vdot(view_dir(c->lampeYaw, c->lampePitch), to) / d;
+    return cc > cosf((LAMPE_ANGLE + 4) * PI / 180.0f) && visible_xz(eye.x, eye.z, p.x, p.z);
+}
+static int dans_faisceau(V3 p) {
+    for (int i = 0; i < MAXP; i++) if (faisceau_de(&cib[i], p)) return 1;
+    return 0;
 }
 
 static void mon_ajouter(int type, float vitK) {
@@ -108,33 +114,46 @@ static int mon_avancer(Monstre *m, float v, float dt) {
     return 0;
 }
 
-static void mon_errer(Monstre *m) {
+static void mon_errer(Monstre *m) {                       /* il erre autour d'un joueur pris au hasard */
     V3 c;
-    if (case_autour(P.pos, RODEUR_ERRE_RMIN, RODEUR_ERRE_RMAX, &c)) mon_viser(m, c);
+    int k = cible_hasard();
+    if (k >= 0 && case_autour(cib[k].pos, RODEUR_ERRE_RMIN, RODEUR_ERRE_RMAX, &c)) mon_viser(m, c);
     mon_etat(m, E_ERRE, 0);
 }
 
 /* ---- le Rodeur -------------------------------------------------------------------------------- */
-static int mon_entend(const Monstre *m, float d) {
-    if (P.dead || P.bruit < 0.01f) return 0;
-    float portee = RODEUR_OUIE * P.bruit;
-    if (!visible_xz(m->pos.x, m->pos.z, P.pos.x, P.pos.z)) portee *= 0.5f;
+static int mon_entend_c(const Monstre *m, const Cible *c, float d) {
+    if (!c->actif || c->mort || c->bruit < 0.01f) return 0;
+    float portee = RODEUR_OUIE * c->bruit;
+    if (!visible_xz(m->pos.x, m->pos.z, c->pos.x, c->pos.z)) portee *= 0.5f;
     return d < portee;
 }
+static int mon_entend(const Monstre *m, float d) { cibles_maj(); return mon_entend_c(m, &cib[slot_local()], d); }   /* le joueur local */
 
-static float rodeur_tick(Monstre *m, float dt, float d) {
-    m->entendu = mon_entend(m, d);
-    if (m->entendu) {
-        if (m->etat == E_CHASSE) { m->oubliT = 0; if ((m->repathT -= dt) <= 0) mon_viser(m, P.pos); }
-        else if (d < 5.0f || P.bruit >= 0.9f) {           /* trop pres ou trop fort : il fonce, en hurlant */
-            mon_etat(m, E_CHASSE, 0); m->oubliT = 0; mon_viser(m, P.pos);
+static float rodeur_tick(Monstre *m, float dt) {
+    int best = -1; float bk = 0;                          /* celui qu'il entend le mieux (bruit / distance) */
+    for (int i = 0; i < MAXP; i++) {
+        float d = dist_xz(m->pos, cib[i].pos);
+        if (!mon_entend_c(m, &cib[i], d)) continue;
+        float k = cib[i].bruit / (d + 1);
+        if (i == m->proie && m->etat == E_CHASSE) k *= 1.5f;   /* il prefere garder sa proie */
+        if (k > bk) { bk = k; best = i; }
+    }
+    m->entendu = best >= 0;
+    if (best >= 0) {
+        const Cible *c = &cib[best];
+        float d = dist_xz(m->pos, c->pos);
+        if (m->etat == E_CHASSE && best == m->proie) { m->oubliT = 0; if ((m->repathT -= dt) <= 0) mon_viser(m, c->pos); }
+        else if (d < 5.0f || c->bruit >= 0.9f) {          /* trop pres ou trop fort : il fonce, en hurlant */
+            m->proie = best;
+            mon_etat(m, E_CHASSE, 0); m->oubliT = 0; mon_viser(m, c->pos);
             play3d(S_RUGISSEMENT, m->pos, 1.3f, 0.9f + 0.15f * frand(), 25);
             sursauter(BPM_SURSAUT * 0.7f);
-        } else if (m->etat != E_ENQUETE || dist_xz(m->cible, P.pos) > 3) {
+        } else if (m->etat != E_ENQUETE || dist_xz(m->cible, c->pos) > 3) {
             float err = d * 0.12f, a = frand() * 2 * PI;
-            V3 c = v3(P.pos.x + sinf(a) * err, 0, P.pos.z + cosf(a) * err);
-            if (cell_mur((int)floorf(c.x), (int)floorf(c.z))) c = P.pos;
-            mon_etat(m, E_ENQUETE, 0); mon_viser(m, c);
+            V3 v = v3(c->pos.x + sinf(a) * err, 0, c->pos.z + cosf(a) * err);
+            if (cell_mur((int)floorf(v.x), (int)floorf(v.z))) v = c->pos;
+            mon_etat(m, E_ENQUETE, 0); mon_viser(m, v);
         }
     } else if (bruitMondeForce > 0 && m->etat != E_CHASSE && dist_xz(m->pos, bruitMondePos) < RODEUR_OUIE * bruitMondeForce
                && dist_xz(m->cible, bruitMondePos) > 2) {
@@ -171,24 +190,36 @@ static float locataire_tick(Monstre *m, float dt, float t) {
         play3d(S_CRAQUE, m->pos, 1.0f, 0.8f + 0.3f * frand(), 16);
         mon_etat(m, E_CHASSE, 0);
     }
-    if (m->etat != E_CHASSE) mon_etat(m, E_CHASSE, 0);    /* il sait toujours ou tu es */
-    if ((m->repathT -= dt) <= 0) mon_viser(m, P.pos);
+    if (m->etat != E_CHASSE) mon_etat(m, E_CHASSE, 0);    /* il sait toujours ou vous etes */
+    if ((m->repathT -= dt) <= 0) {
+        float bd = 1e9f; int best = -1;                   /* le plus proche */
+        for (int i = 0; i < MAXP; i++)
+            if (cib[i].actif && !cib[i].mort && dist_xz(m->pos, cib[i].pos) < bd) { bd = dist_xz(m->pos, cib[i].pos); best = i; }
+        if (best >= 0) { m->proie = best; mon_viser(m, cib[best].pos); }
+    }
     if ((m->sonT -= dt) <= 0) { play3d(S_CRAQUE, m->pos, 0.8f, 0.7f + 0.5f * frand(), 14); m->sonT = 0.6f + frand() * 0.9f; }
     return LOCATAIRE_V;
 }
 
 /* ---- la Rampante ------------------------------------------------------------------------------ */
-static float rampante_tick(Monstre *m, float dt, float d) {
-    int lampe = P.lampe && P.batterie > 0;
-    int voit = lampe && !P.dead && ((d < RAMPANTE_VUE && visible_xz(m->pos.x, m->pos.z, P.pos.x, P.pos.z)) || d < RAMPANTE_PROCHE);
+static float rampante_tick(Monstre *m, float dt) {
+    int voitK = -1; float bd = 1e9f;                      /* la lampe allumee la plus proche qu'elle voit */
+    for (int i = 0; i < MAXP; i++) {
+        const Cible *c = &cib[i];
+        if (!c->actif || c->mort || !c->lampe) continue;
+        float d = dist_xz(m->pos, c->pos);
+        if (((d < RAMPANTE_VUE && visible_xz(m->pos.x, m->pos.z, c->pos.x, c->pos.z)) || d < RAMPANTE_PROCHE) && d < bd) { bd = d; voitK = i; }
+    }
+    int voit = voitK >= 0;
     if (voit) {
-        if (m->etat != E_CHASSE) {                        /* elle a vu ta lumiere */
+        if (m->etat != E_CHASSE) {                        /* elle a vu une lumiere */
             play3d(S_CRI_RAMPANTE, m->pos, 1.3f, 0.95f + 0.1f * frand(), 30);
             sursauter(BPM_SURSAUT);
             mon_etat(m, E_CHASSE, 0);
         }
+        m->proie = voitK;
         m->oubliT = 0;
-        if ((m->repathT -= dt) <= 0) mon_viser(m, P.pos);
+        if ((m->repathT -= dt) <= 0) mon_viser(m, cib[voitK].pos);
     }
     if ((m->sonT -= dt) <= 0) { play3d(S_GRATTE, m->pos, 0.9f, 0.9f + 0.3f * frand(), 13); m->sonT = m->etat == E_CHASSE ? 0.25f : 0.7f + frand(); }
     switch (m->etat) {
@@ -205,19 +236,27 @@ static float rampante_tick(Monstre *m, float dt, float d) {
 }
 
 static void monstres_tick(float dt, float t) {
+    cibles_maj();
+    if (!monstresEveilles) return;
     for (int i = 0; i < nmon; i++) {
         Monstre *m = &mon[i];
         if (!m->actif) continue;
         m->prevPos = m->pos;
         m->vivT += dt;
-        float d = dist_xz(m->pos, P.pos), v = 0;
+        float v = 0;
         if (m->bloqueT > 0) { m->bloqueT -= dt; continue; }   /* pris dans une machoire */
-        if (m->type == MON_RODEUR) v = rodeur_tick(m, dt, d);
+        if (m->type == MON_RODEUR) v = rodeur_tick(m, dt);
         else if (m->type == MON_LOCATAIRE) v = locataire_tick(m, dt, t);
-        else v = rampante_tick(m, dt, d);
-        if (!P.dead && d < RODEUR_PRISE && tueur < 0 && m->etat != E_FIGE) tueur = i;
+        else v = rampante_tick(m, dt);
+        if (m->etat != E_FIGE)
+            for (int k = 0; k < MAXP; k++) {               /* il attrape ceux qu'il touche */
+                if (!cib[k].actif || cib[k].mort || dist_xz(m->pos, cib[k].pos) >= RODEUR_PRISE) continue;
+                if (k == slot_local()) { if (tueur < 0) tueur = i; }
+                else reseau_mort_distante(k, m->type);
+                cib[k].mort = 1;
+            }
         if (v > 0 && mon_avancer(m, v * m->vitK, dt)) {    /* arrive */
-            if (m->etat == E_CHASSE) mon_viser(m, P.pos);
+            if (m->etat == E_CHASSE && cib[m->proie].actif) mon_viser(m, cib[m->proie].pos);
             else if (m->type == MON_RODEUR && (m->etat == E_ENQUETE || frand() < 0.5f)) {
                 mon_etat(m, E_ECOUTE, 2.0f + frand() * 2.5f);
                 play3d(S_RODEUR_CLIC, m->pos, 0.8f, 0.9f + 0.2f * frand(), 12);
@@ -245,7 +284,7 @@ static int mon_proche(float *d) {
     int best = -1; float bd = 1e9f;
     for (int i = 0; i < nmon; i++) {
         if (!mon[i].actif) continue;
-        float dd = dist_xz(mon[i].pos, P.pos);
+        float dd = dist_xz(mon[i].pos, P.pos);            /* du joueur local (peur, coeur, lampe) */
         if (dd < bd) { bd = dd; best = i; }
     }
     *d = bd;

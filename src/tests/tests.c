@@ -44,6 +44,7 @@ static void test_isoler(void) {                          /* tests du joueur seul
 static void test_reset(void) { reset_game(); cartonActif = 0; }   /* sans les textes de l'histoire */
 static void test_monstre(int type, float x, float z) {
     test_isoler(); mon_ajouter(type, 1);
+    monstresEveilles = 1;
     mon[0].pos = mon[0].prevPos = v3(x, 0, z); mon_etat(&mon[0], E_ERRE, 0); mon_viser(&mon[0], mon[0].pos);
 }
 static void test_place(float x, float z, float yaw) { P.pos = P.prevPos = v3(x, 0, z); P.yaw = P.lampeYaw = yaw; P.vel = v3(0, 0, 0); }
@@ -52,6 +53,7 @@ static int run_tests(const char *path) {
     testOut = fopen(path, "w");
     if (!testOut) return 1;
     fprintf(testOut, "BOURDONNEMENT - tests automatiques\n\n");
+    carteTest = 1;                                        /* coordonnees connues : la carte d'essai */
 
     /* maths et graine */
     check("maths : |vnorm(3,4,12)|", vlen(vnorm(v3(3, 4, 12))), 0.999f, 1.001f);
@@ -300,6 +302,55 @@ static int run_tests(const char *path) {
             }
         }
         check("generation : 200 graines toutes valides", (float)mauvais, 0, 0);
+    }
+
+    /* le vrai niveau 1 et la geometrie */
+    {
+        carteTest = 0;
+        reset_game(); cartonActif = 0;
+        int libres, n = carte_atteignables(&libres), linteaux = 0, plinthes = 0, cloisons = 0;
+        check("niveau 1 : toutes les cases libres atteignables", (float)(libres - n), 0, 0);
+        check("niveau 1 : 3 fusibles, 1 machoire, l'ascenseur", (float)(nfus * 100 + npieges * 10 + asc.actif), 311, 311);
+        for (int i = 0; i < nfaces; i++) {
+            if (faces[i].mat == MAT_PLINTHE) plinthes++;
+            if (faces[i].mat == MAT_CLOISON) cloisons++;
+            if (faces[i].mat == MAT_CORNICHE && faces[i].n.y < -0.5f && faces[i].o.y < LINTEAU_Y + 0.01f && faces[i].o.y > LINTEAU_Y - 0.01f) linteaux++;
+        }
+        check("geometrie : plinthes", (float)plinthes, 100, 99999);
+        check("geometrie : linteaux au-dessus des passages", (float)linteaux, 4, 999);
+        check("geometrie : cloisons basses", (float)cloisons, 10, 9999);
+        check("geometrie : prises et grilles sur les murs", (float)ndecals, 10, MAXDECAL);
+        check("cloison basse : on ne passe pas", (float)(cell_mur(11, 2) != 0), 1, 1);
+        check("cloison basse : on voit par-dessus", (float)visible_xz(10.5f, 2.5f, 12.5f, 3.5f), 1, 1);
+        check("niveau 1 : le monstre dort au debut", (float)monstresEveilles, 0, 0);
+        carteTest = 1;
+    }
+
+    /* en ligne : instantane, et monstres face a plusieurs joueurs */
+    {
+        test_reset(); test_place(10.5f, 27.5f, PI / 2); test_monstre(MON_RODEUR, 22.5f, 27.5f);
+        netMode = NET_HOTE; monSlot = 0;
+        JP[1].actif = 1; snprintf(JP[1].nom, 16, "Ines");
+        netj_de_P(&JP[1].st); JP[1].st.x = 35.5f; JP[1].st.z = 27.5f; JP[1].st.bruit = 100;   /* Ines court, a 13 m de lui */
+        P.bruit = BRUIT_ACCROUPI; P.bruitImpulse = 0;
+        monstres_tick(TICK, 0);
+        check("multi : il poursuit celui qui fait du bruit (Ines)", (float)(mon[0].etat == E_CHASSE ? mon[0].proie : -1), 1, 1);
+        mon[0].pos = v3(35.5f, 0, 27.4f);
+        monstres_tick(TICK, 0);
+        check("multi : il attrape Ines (annonce de l'hote)", (float)mortHote[1], MON_RODEUR + 1, MON_RODEUR + 1);
+        Snap s; snap_faire(&s);
+        unsigned char back[sizeof(Snap) + 8]; char b64[WS_LIGNE];
+        int n = b64_enc((const unsigned char *)&s, sizeof s, b64), m = b64_dec(b64, back, sizeof back);
+        check("multi : instantane en base64 (taille)", (float)n, 1, 2000);
+        check("multi : instantane relu a l'identique", (m == (int)sizeof s && !memcmp(back, &s, sizeof s)) ? 1.0f : 0.0f, 1, 1);
+        check("multi : l'instantane dit qu'Ines est morte", (float)(s.j[1].flags & JF_MORT ? 1 : 0), 1, 1);
+        Snap c = s; c.fusMask = 1; c.piegeSeq[0] = 0;  /* cote client : un fusible pris par quelqu'un */
+        netMode = NET_CLIENT; monSlot = 1;
+        int avant = fusPris;
+        snap_appliquer(&c);
+        check("multi : le client voit le fusible pris", (float)(fusPris - avant), 1, 1);
+        check("multi : le client voit le monstre", (float)nmon, 1, 1);
+        netMode = NET_OFF; monSlot = 0; memset(JP, 0, sizeof JP); memset(mortHote, 0, sizeof mortHote);
     }
 
     /* micro : chuchoter passe, crier attire */

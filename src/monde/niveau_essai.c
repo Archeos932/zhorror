@@ -1,9 +1,9 @@
-/* BOURDONNEMENT - carte d'essai faite a la main (etape 1) : un morceau du Hall Jaune.
+/* BOURDONNEMENT - les cartes faites a la main : la carte d'essai (tests, captures) et le niveau 1.
    Remplacee a l'etape 2 par la generation par graine. Legende : voir carte_charger (carte.c).
    Salle de depart, couloir des neons fous (inonde), hall a piliers, zone noire en haut a droite (sans neon),
    flaques, verre brise et trois machoires de loup. */
 
-static const char *const niveauEssai[] = {
+static const char *const niveauTest[] = {
     "################################################",
     "#......#..........#.........#.........,,,,,,,,E#",
     "#......#..........#.........#.........,,,,,,,,##",
@@ -39,6 +39,41 @@ static const char *const niveauEssai[] = {
     "#..............................................#",
     "################################################",
 };
-#define NIVEAU_ESSAI_N ((int)(sizeof niveauEssai / sizeof niveauEssai[0]))
+#define NIVEAU_TEST_N ((int)(sizeof niveauTest / sizeof niveauTest[0]))
 
-static void charger_niveau_essai(void) { carte_charger(niveauEssai, NIVEAU_ESSAI_N); }
+/* Le vrai niveau 1 : la salle de depart, un open space de bureaux abandonnes (cloisons basses, piliers), un couloir
+   inonde aux neons fous, une zone noire, des salles du fond ; un fusible par zone, une seule machoire. */
+static const char *const niveauUn[] = {
+    "#############################################",
+    "#.......#.........................#,,,,,,,,,#",
+    "#.......#..===...===...===...===..#,,,,,,,,,#",
+    "#...P...#..=.......=...=.......=..#,,,,,,,,,#",
+    "#.......#..=...#...=...=...#...=..#,,,,F,,,,#",
+    "#...........................................#",
+    "#.......#..=...#...=...=...#...=..#,,,,,,,,,#",
+    "#.......#..=.......=...=.......=..#,,,,,,,,,#",
+    "###.#####..===...===...===...===..###,,,,####",
+    "#.......#.........................#.......E##",
+    "#.......#.....#.......#.......#...#.....#####",
+    "#.......#.........................#.....#...#",
+    "#.......####.##########.#######.###.....#...#",
+    "#..........f.......f........x.......M.......#",
+    "#......~~~~~~~~...........%%................#",
+    "#..........f.......f............###########.#",
+    "#######.###########.##########..#.........#.#",
+    "#...........#...........#.......#.........#.#",
+    "#...=====...#...#####...#...F...#..===....#.#",
+    "#...........#...#...#...#.......#..=......#.#",
+    "#F..........#...#...#...#.......#..=......#.#",
+    "#...=====.......#...#...........#.........#.#",
+    "#...........#...........#.......####.######.#",
+    "#...........#...........#...................#",
+    "#############################################",
+};
+#define NIVEAU_UN_N ((int)(sizeof niveauUn / sizeof niveauUn[0]))
+
+static int carteTest;                                     /* tests et captures : la carte d'essai (coordonnees connues) */
+static void charger_niveau_essai(void) {
+    if (carteTest) carte_charger(niveauTest, NIVEAU_TEST_N);
+    else carte_charger(niveauUn, NIVEAU_UN_N);
+}
