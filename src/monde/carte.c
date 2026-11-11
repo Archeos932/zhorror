@@ -27,6 +27,16 @@ typedef struct { int actif, gx, gz, cote; float ouverture; int alimente, dedans;
 static Ascenseur asc;
 static const int cotes[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };   /* +x, -x, +z, -z */
 
+/* sol : flaques (bruyantes, glissantes) et verre brise (craque) ; pieges : machoire de loup, faux fusible (alarme) */
+enum { SOL_NORMAL, SOL_EAU, SOL_VERRE };
+static unsigned char sol[CARTE_MAX][CARTE_MAX];
+enum { PIEGE_MACHOIRE, PIEGE_ALARME };
+typedef struct { V3 pos; int type, arme; float t; } Piege;  /* t : temps depuis le declenchement */
+#define MAXPIEGE 48
+static Piege pieges[MAXPIEGE];
+static int npieges;
+static float lumCase[CARTE_MAX][CARTE_MAX];               /* eclairement fixe du sol de chaque case (rendu/eclairage.c) */
+
 #define MAXFUS 8
 typedef struct { V3 pos; int pris; } Fusible;
 static Fusible fus[MAXFUS];
@@ -58,7 +68,9 @@ static void carte_vider(int w, int h) {
     memset(grille, 1, sizeof grille);
     memset(sansNeon, 0, sizeof sansNeon);
     carteW = w < CARTE_MAX ? w : CARTE_MAX; carteH = h < CARTE_MAX ? h : CARTE_MAX;
-    nneons = 0; nfus = 0;
+    nneons = 0; nfus = 0; npieges = 0;
+    memset(sol, 0, sizeof sol);
+    memset(lumCase, 0, sizeof lumCase);
     memset(&asc, 0, sizeof asc);
     carteDepart = v3(carteW * 0.5f, 0, carteH * 0.5f); carteDepartYaw = 0;
 }
@@ -68,6 +80,26 @@ static void add_fusible(int gx, int gz) {
     fus[nfus].pos = v3(gx + 0.5f, 0, gz + 0.5f);
     fus[nfus].pris = 0;
     nfus++;
+}
+
+static void add_piege(int gx, int gz, int type) {
+    if (npieges >= MAXPIEGE) return;
+    pieges[npieges].pos = v3(gx + 0.5f, 0, gz + 0.5f);
+    pieges[npieges].type = type; pieges[npieges].arme = 1; pieges[npieges].t = -1;
+    npieges++;
+}
+
+static int sol_en(float x, float z) {
+    int gx = (int)floorf(x), gz = (int)floorf(z);
+    if (gx < 0 || gz < 0 || gx >= carteW || gz >= carteH) return SOL_NORMAL;
+    return sol[gz][gx];
+}
+
+/* eclairement fixe pres d'un point (objets, monstres, le Locataire fige sous un neon) */
+static float lum_case(float x, float z) {
+    int gx = (int)floorf(x), gz = (int)floorf(z);
+    if (gx < 0 || gz < 0 || gx >= carteW || gz >= carteH) return 0;
+    return lumCase[gz][gx];
 }
 
 /* cabine en (gx, gz) : sa porte donne sur la seule case libre voisine */
@@ -92,7 +124,8 @@ static void placer_neons(void) {
 }
 
 /* Carte en texte : '#' mur, '.' sol (neon automatique), ',' sol sans neon, 'n' neon force, 'f' neon qui clignote,
-   'x' neon mort, 'P' depart du joueur (regarde vers -z), 'F' fusible, 'E' cabine d'ascenseur. */
+   'x' neon mort, 'P' depart du joueur (regarde vers -z), 'F' fusible, 'E' cabine d'ascenseur,
+   '~' flaque, '%' verre brise, 'M' machoire de loup, 'A' faux fusible (alarme). */
 static void carte_charger(const char *const *lignes, int n) {
     int w = 0;
     for (int z = 0; z < n; z++) { int l = (int)strlen(lignes[z]); if (l > w) w = l; }
@@ -106,6 +139,10 @@ static void carte_charger(const char *const *lignes, int n) {
             if (c == ',') sansNeon[z][x] = 1;
             if (c == 'P') carteDepart = v3(x + 0.5f, 0, z + 0.5f);
             if (c == 'F') add_fusible(x, z);
+            if (c == '~') sol[z][x] = SOL_EAU;
+            if (c == '%') sol[z][x] = SOL_VERRE;
+            if (c == 'M') add_piege(x, z, PIEGE_MACHOIRE);
+            if (c == 'A') add_piege(x, z, PIEGE_ALARME);
             if (c == 'E') { ex = x; ez = z; }
             if (c == 'n') add_neon(x, z, NEON_OK);
             else if (c == 'f') add_neon(x, z, NEON_FOU);

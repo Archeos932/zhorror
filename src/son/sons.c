@@ -247,5 +247,113 @@ static void make_sounds(void) {
     }
     sounds[S_FAUX_BRUIT] = mksound(b, n);
 
+    /* pas dans l'eau : eclaboussure (bruit filtre, bulles) */
+    b = sbuf(0.4f, &n); lp = 0; lp2 = 0;
+    for (int i = 0; i < n; i++) {
+        t = (float)i / SR;
+        lp += 0.35f * (noise() - lp);
+        lp2 += 0.05f * (noise() - lp2);
+        float bulle = sinf(t * 2 * PI * (600 + 900 * t)) * 0.2f * expf(-t * 18) * (t > 0.05f);
+        b[i] = (lp - lp2) * 1.6f * expf(-t * 11) + lp2 * 1.5f * expf(-t * 30) + bulle;
+    }
+    sounds[S_FLAQUE] = mksound(b, n);
+
+    /* verre : craquement, eclats aigus */
+    b = sbuf(0.35f, &n);
+    for (int i = 0; i < n; i++) {
+        t = (float)i / SR;
+        float c = frand() < 0.03f * expf(-t * 8) ? noise() * 1.5f : 0;
+        b[i] = c + noise() * 0.25f * expf(-t * 25) + sinf(t * 2 * PI * 3400) * 0.15f * expf(-t * 40);
+    }
+    sounds[S_VERRE] = mksound(b, n);
+
+    /* machoire : claquement metallique enorme, ressort qui vibre */
+    b = sbuf(0.9f, &n);
+    for (int i = 0; i < n; i++) {
+        t = (float)i / SR;
+        b[i] = noise() * 1.2f * expf(-t * 60) + (sinf(t * 2 * PI * 340) * 0.5f + sinf(t * 2 * PI * 997) * 0.35f
+             + sinf(t * 2 * PI * 2210) * 0.2f) * expf(-t * 6) * (0.7f + 0.3f * sinf(t * 2 * PI * 31));
+    }
+    sounds[S_MACHOIRE] = mksound(b, n);
+
+    /* alarme : bip strident et sale */
+    b = sbuf(0.22f, &n);
+    for (int i = 0; i < n; i++) {
+        t = (float)i / SR;
+        float sq = sinf(t * 2 * PI * 2900) > 0 ? 1.0f : -1.0f;
+        b[i] = sq * 0.35f * (t < 0.18f ? 1 : expf(-(t - 0.18f) * 80));
+    }
+    sounds[S_ALARME] = mksound(b, n);
+
+    /* os qui craquent : salve de petits craquements secs et graves */
+    b = sbuf(0.7f, &n);
+    {
+        float tc = 0;
+        for (int c = 0; c < 7 && tc < 0.6f; c++) {
+            int i0 = (int)(tc * SR);
+            float f = 180 + frand() * 400;
+            for (int i = 0; i < (int)(0.05f * SR) && i0 + i < n; i++) {
+                float tt = (float)i / SR;
+                b[i0 + i] += (noise() * 0.9f + sinf(tt * 2 * PI * f) * 0.6f) * expf(-tt * 90);
+            }
+            tc += 0.04f + frand() * 0.12f;
+        }
+    }
+    sounds[S_CRAQUE] = mksound(b, n);
+
+    /* griffes : grattement rapide sur la moquette */
+    b = sbuf(0.3f, &n); lp = 0;
+    for (int i = 0; i < n; i++) {
+        t = (float)i / SR;
+        lp += 0.5f * (noise() - lp);
+        float g = 0.5f + 0.5f * sinf(t * 2 * PI * 38);
+        b[i] = lp * g * g * 0.8f * sinf(PI * t / 0.3f);
+    }
+    sounds[S_GRATTE] = mksound(b, n);
+
+    /* rugissement du Rodeur : gorge dechiree, grave qui monte */
+    b = sbuf(1.4f, &n);
+    {
+        float ph = 0, ph2 = 0, bp = 0, bpv = 0;
+        for (int i = 0; i < n; i++) {
+            t = (float)i / SR;
+            ph += (70 + 60 * t + 8 * sinf(t * 40)) / SR;
+            ph2 += (143 + 90 * t) / SR;
+            float in = (2 * (ph - floorf(ph)) - 1) + 0.6f * (2 * (ph2 - floorf(ph2)) - 1) + noise() * 0.8f;
+            float fc = 500 + 400 * sinf(t * 3), f = 2 * sinf(PI * fc / SR);
+            float hp = in - bp - 0.3f * bpv;
+            bpv += f * hp; bp += f * bpv;
+            float env = fminf(1, t * 12) * (t < 1.0f ? 1 : expf(-(t - 1.0f) * 8));
+            b[i] = tanhf((bp * 0.8f + bpv * 0.3f) * 1.8f) * env * 0.9f;
+        }
+    }
+    sounds[S_RUGISSEMENT] = mksound(b, n);
+
+    /* cri de la Rampante : hurlement aigu, presque humain, qui casse */
+    b = sbuf(1.2f, &n);
+    {
+        float ph = 0;
+        for (int i = 0; i < n; i++) {
+            t = (float)i / SR;
+            float f = 900 + 500 * sinf(t * 7) * expf(-t) + 300 * (t > 0.6f ? -1 : 1) + 40 * sinf(t * 2 * PI * 23);
+            ph += f / SR;
+            float s = sinf(ph * 2 * PI) + 0.5f * sinf(ph * 4 * PI + 0.3f) + 0.3f * (2 * (ph * 3 - floorf(ph * 3)) - 1);
+            float env = fminf(1, t * 30) * expf(-t * 1.8f);
+            b[i] = tanhf((s + noise() * 0.5f) * 1.5f) * env * 0.7f;
+        }
+    }
+    sounds[S_CRI_RAMPANTE] = mksound(b, n);
+
+    /* radio : gresillement, bande etroite */
+    b = sbuf(0.8f, &n); lp = 0; lp2 = 0;
+    for (int i = 0; i < n; i++) {
+        t = (float)i / SR;
+        lp += 0.4f * (noise() - lp);
+        lp2 += 0.08f * (lp - lp2);
+        float gate = sinf(t * 2 * PI * 13) > -0.2f ? 1.0f : 0.3f;
+        b[i] = (lp - lp2) * 0.9f * gate * sinf(PI * t / 0.8f);
+    }
+    sounds[S_RADIO] = mksound(b, n);
+
     rng = keep;
 }

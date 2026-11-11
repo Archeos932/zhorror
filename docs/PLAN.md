@@ -323,3 +323,22 @@ vite.
 - Pas d'accents dans les chaînes C ; commentaires en français.
 - Toute nouvelle mécanique a sa ligne dans `run_tests()` ; toute nouvelle scène, sa capture `--shot`.
 - Tout est déterministe (graine) : génération, directeur, monstres → bugs reproductibles.
+
+---
+
+## 11. Plan d'action « vraiment horrible » (novembre 2026)
+
+Retour du propriétaire après la première version jouable : plus sombre, pièges, flaques, musique pire, plusieurs
+monstres, plus de vitesse, histoire écrite à l'écran, ressentir le BPM, screamer pire. Ce qui est fait :
+
+| Axe | Mise en œuvre |
+|---|---|
+| Plus sombre | Niveau 1 : ~40 % de néons morts, puis 50 à 65 % ; néons moins puissants ; brouillard plus dense ; ambiance minimale divisée par deux. |
+| Sol et pièges | `~` flaque (pas bruyants même en marchant, splash), `%` verre brisé (craque), `M` mâchoire de loup (immobilise, cri, marteler E), `A` faux fusible (alarme qui attire). Les niveaux générés en placent de plus en plus. |
+| Trois monstres | **Rôdeur** (aveugle, entend), **Locataire** (n'avance que dans le noir : le garder dans la lumière), **Rampante** (fonce sur la lumière : éteindre la lampe). Ordre : N1 Rôdeur, N2 Locataire, N3 Rampante, N4 Rôdeur + Rampante, N5 Rôdeur + Locataire, puis les trois. Les règles se contredisent : c'est voulu. |
+| BPM | Rythme cardiaque 65 → 190 (course, proximité, poursuite, pics de peur) ; battement entendu dans la musique, pouls à l'écran (vignette et champ de vision), affichage « BPM » façon caméscope. |
+| Musique | Moteur temps réel `src/son/ambiance.c` : nappe dissonante filtrée par la tension, infra-basse, boîte à musique du centre commercial désaccordée, cordes qui crissent, tambours de poursuite calés sur le cœur, coups dans les tuyaux et chuchotements au hasard, réverbération. |
+| Histoire | `src/jeu/histoire.c` + `textes.c` (généré, accents CP1252) : texte d'ouverture tapé à la machine, un carton par niveau (histoire + règle du monstre déguisée), messages radio pendant le niveau. |
+| Screamer | 2,3 s : coupes toutes les 90 ms entre plan serré, très gros plan, négatif, déchirures VHS ; triple hurlement + impact ; texte de mort propre à chaque monstre. Images subliminales (2 images) quand la tension monte. |
+| Vitesse | Marche 2,1 m/s, course 5,4, accroupi 1,2 ; monstres accélérés en proportion (la Rampante est plus rapide que toi). |
+| VHS | Lignes de balayage, neige, bande de tracking ; plus forts avec la tension. |

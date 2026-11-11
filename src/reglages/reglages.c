@@ -2,9 +2,9 @@
    Morceau de main.c : inclus dans l'ordre, ne se compile pas seul (voir main.c). */
 
 /* --- joueur (m/s, s) --- */
-#define MARCHE_V          1.6f    /* marche */
-#define COURSE_V          4.2f    /* course (tant qu'il reste de l'endurance) */
-#define ACCROUPI_V        0.9f    /* accroupi : lent et presque silencieux */
+#define MARCHE_V          2.1f    /* marche */
+#define COURSE_V          5.4f    /* course (tant qu'il reste de l'endurance) */
+#define ACCROUPI_V        1.2f    /* accroupi : lent et presque silencieux */
 #define ACCEL_K           7.0f    /* la vitesse rejoint la vitesse voulue a ce taux (1/s) quand on pousse */
 #define FREIN_K           11.0f   /* ... et quand on lache (on s'arrete un peu plus vite qu'on ne demarre) */
 #define ENDURANCE_MAX     6.0f    /* secondes de course a pleine endurance */
@@ -53,17 +53,17 @@
 #define NEON_PAS_CASES    3       /* un neon automatique toutes les 3 cases (x et z) */
 #define LM_DENS           8       /* texels de lightmap par metre */
 #define LM_ATLAS          1024    /* cote de l'atlas des lightmaps */
-#define NEON_I            2.6f    /* puissance d'un neon (eclairement direct) */
+#define NEON_I            2.3f    /* puissance d'un neon (eclairement direct) */
 #define NEON_PORTEE       7.5f    /* au-dela, un neon n'eclaire plus (precalcul) */
 #define REBOND_K          0.30f   /* lumiere renvoyee par les murs jaunes (rebond approche) */
-#define AMBIANCE_MIN      0.025f  /* le noir n'est jamais tout a fait noir */
-#define FOG_DENSITE       0.19f   /* brouillard du niveau 1 (les suivants sont plus denses) */
+#define AMBIANCE_MIN      0.012f  /* le noir n'est jamais tout a fait noir */
+#define FOG_DENSITE       0.22f   /* brouillard du niveau 1 (les suivants sont plus denses) */
 #define CARTE_GEN_MIN     36      /* niveaux generes : cote de la carte au niveau 2 */
 
 /* --- le Rodeur (monstre aveugle, chasse au bruit) --- */
-#define RODEUR_ERRE_V     1.05f   /* vitesse quand il erre */
-#define RODEUR_ENQUETE_V  2.1f    /* quand il va voir un bruit */
-#define RODEUR_CHASSE_V   3.85f   /* quand il te poursuit : la course le distance... tant que l'endurance tient */
+#define RODEUR_ERRE_V     1.35f   /* vitesse quand il erre */
+#define RODEUR_ENQUETE_V  2.7f    /* quand il va voir un bruit */
+#define RODEUR_CHASSE_V   4.95f   /* quand il te poursuit : la course le distance... tant que l'endurance tient */
 #define RODEUR_OUIE       15.0f   /* portee d'ecoute pour un bruit de 1 (course) ; derriere un mur : moitie */
 #define RODEUR_PRISE      0.75f   /* a cette distance, il t'attrape */
 #define RODEUR_OUBLI      3.5f    /* sans t'entendre pendant ce temps, il abandonne la poursuite */
@@ -72,8 +72,40 @@
 #define RODEUR_DEPART_MIN 22.0f   /* il apparait au moins a cette distance du depart */
 #define RODEUR_NIVEAU_K   0.08f   /* +8 % de vitesse par niveau */
 
+/* --- le Locataire (n'avance que dans le noir) --- */
+#define LOCATAIRE_V       3.1f    /* vitesse quand personne ne l'eclaire */
+#define LOCATAIRE_LUMIERE 0.30f   /* sous un neon plus lumineux que ca, il est fige */
+#define LOCATAIRE_REVEIL  14.0f   /* il ne bouge qu'apres ce temps (s) dans le niveau */
+#define LAMPE_PORTEE      15.0f   /* le faisceau fige le Locataire / attire la Rampante jusqu'a cette distance */
+
+/* --- la Rampante (fonce sur la lumiere) --- */
+#define RAMPANTE_ERRE_V   2.6f    /* elle trotte par a-coups */
+#define RAMPANTE_CHASSE_V 6.3f    /* plus rapide que toi : la seule issue, c'est le noir */
+#define RAMPANTE_VUE      22.0f   /* elle voit une lampe allumee jusque-la (ligne de vue) */
+#define RAMPANTE_PROCHE   7.0f    /* plus pres, elle sent la lampe meme si elle ne la voit pas */
+#define RAMPANTE_OUBLI    1.4f    /* lampe eteinte depuis ce temps : elle perd ta trace */
+
+/* --- sol et pieges --- */
+#define BRUIT_EAU         0.85f   /* pas dans une flaque (accroupi : x 0,4) */
+#define BRUIT_VERRE       1.25f   /* pas sur du verre (accroupi : x 0,4) */
+#define EAU_FREIN         0.8f    /* on avance moins vite dans l'eau */
+#define MACHOIRE_T        3.0f    /* immobilise (s) ; chaque appui sur E en retire MACHOIRE_E */
+#define MACHOIRE_E        0.35f
+#define BRUIT_MACHOIRE    1.9f
+#define ALARME_T          6.0f    /* un faux fusible sonne pendant ce temps */
+#define BRUIT_ALARME      1.6f
+
+/* --- coeur --- */
+#define BPM_REPOS         66.0f
+#define BPM_MAX           192.0f
+#define BPM_COURSE        38.0f   /* + en courant */
+#define BPM_TENSION       85.0f   /* + a tension maximale (monstre tout pres, poursuite) */
+#define BPM_SURSAUT       45.0f   /* pic sur un sursaut (piege, apparition, alarme) */
+
 /* --- peur, screamers --- */
-#define SCREAMER_MORT_T   1.7f    /* duree du screamer de mort */
+#define SUBLIMINAL_MIN    35.0f   /* images subliminales : au moins tant de secondes entre deux */
+#define SUBLIMINAL_MAX    80.0f
+#define SCREAMER_MORT_T   2.3f    /* duree du screamer de mort */
 #define APPARITION_T      0.55f   /* duree d'une apparition dans le faisceau */
 #define APPARITION_MIN    95.0f   /* au moins tant de secondes entre deux apparitions */
 #define APPARITION_MAX    200.0f

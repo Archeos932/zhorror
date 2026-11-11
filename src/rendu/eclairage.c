@@ -13,7 +13,6 @@ static Face faces[MAXFACES];
 static int nfaces;
 static int lmTaille = 2048, lmDens = LM_DENS;             /* cote de l'atlas, texels par metre */
 static unsigned char *lmFixe, *lmDyn;                     /* atlas RGB (malloc) */
-static float lumCase[CARTE_MAX][CARTE_MAX];               /* eclairement fixe du sol de chaque case (objets, monstre) */
 static double lmBakeMs;
 
 static V3 up3(void) { return v3(0, 1, 0); }
@@ -168,11 +167,4 @@ static void bake_lightmaps(void) {
     }
     QueryPerformanceCounter(&t1);
     lmBakeMs = (double)(t1.QuadPart - t0.QuadPart) * 1000.0 / (double)fq.QuadPart;
-}
-
-/* eclairement fixe pres d'un point (objets, monstre) : moyenne bilineaire des cases */
-static float lum_case(float x, float z) {
-    int gx = (int)floorf(x), gz = (int)floorf(z);
-    if (gx < 0 || gz < 0 || gx >= carteW || gz >= carteH) return AMBIANCE_MIN;
-    return lumCase[gz][gx];
 }

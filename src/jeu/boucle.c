@@ -6,16 +6,18 @@ static unsigned char neonEtat[MAXNEON];                   /* dernier etat de cha
 
 static void reset_game(void) {
     gameT = 0;
-    niveau_charger(1);
+    niveau_charger_ex(1, 0);
+    carton_ouvrir(texteIntro, "", 1);                     /* le texte d'ouverture, puis celui du niveau */
     for (int i = 0; i < nneons; i++) neonEtat[i] = (unsigned char)neon_allume(i, 0);
 }
 
 static void game_tick(float dt) {
     input_poll();
+    if (carton_tick(dt)) { P.prevPos = P.pos; return; }   /* texte a l'ecran : le monde attend */
     gameT += dt;
     if (screamT < 0 && mortT < 0) {
         player_tick(dt);
-        rodeur_tick(dt);
+        monstres_tick(dt, gameT);
         objectif_tick(dt);
     } else {
         P.prevPos = P.pos;

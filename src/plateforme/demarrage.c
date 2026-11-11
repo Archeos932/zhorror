@@ -79,19 +79,27 @@ static int bourdon_main(const char *cmd) {
     reset_game();
 
     if (shotMode) {                                       /* capture : une image fixe, puis on quitte */
-        appState = APP_GAME; gameT = 30; carteNiveauT = 0; msgT = 0;
-        R.pos = R.prevPos = v3(20.5f, 0, 31.5f);         /* le Rodeur loin, sauf scene "rodeur" */
+        appState = APP_GAME; gameT = 30; msgT = 0; cartonActif = 0;
+        for (int i = 0; i < nmon; i++) mon[i].pos = mon[i].prevPos = v3(20.5f, 0, 31.5f);   /* loin, sauf scenes de monstres */
+        bpm = 96; coeurPouls = 0.6f;
         if (strstr(shotPath, "menu")) { appState = APP_MENU; nowT = 20; }
-        else if (strstr(shotPath, "noir")) { P.pos = P.prevPos = v3(40.5f, 0, 7.5f); P.yaw = P.lampeYaw = 0; }   /* zone sans neon */
-        else if (strstr(shotPath, "rodeur") || strstr(shotPath, "screamer")) {
+        else if (strstr(shotPath, "carton")) { carton_niveau(2); cartonCars = 200; nowT = 3; }
+        else if (strstr(shotPath, "noir")) { P.pos = P.prevPos = v3(40.5f, 0, 7.5f); P.yaw = P.lampeYaw = 0; }   /* zone sans neon, flaque */
+        else if (strstr(shotPath, "piege")) { P.pos = P.prevPos = v3(31.2f, 0, 27.5f); P.yaw = P.lampeYaw = PI / 2; P.pitch = P.lampePitch = -0.45f; }
+        else if (strstr(shotPath, "flaque")) { P.pos = P.prevPos = v3(7.0f, 0, 16.5f); P.yaw = P.lampeYaw = PI / 2; P.pitch = P.lampePitch = -0.3f; }
+        else if (strstr(shotPath, "rodeur") || strstr(shotPath, "locataire") || strstr(shotPath, "rampante") || strstr(shotPath, "screamer")) {
+            int type = strstr(shotPath, "locataire") ? MON_LOCATAIRE : strstr(shotPath, "rampante") ? MON_RAMPANTE : MON_RODEUR;
             P.pos = P.prevPos = v3(10.5f, 0, 27.5f); P.yaw = P.lampeYaw = PI / 2;
-            R.pos = R.prevPos = v3(14.2f, 0, 27.6f); R.yaw = -PI / 2; R.anim = 0.7f;
-            if (strstr(shotPath, "screamer")) screamT = 0.32f;
+            monstres_reset(); mon_ajouter(type, 1);
+            mon[0].pos = mon[0].prevPos = v3(type == MON_RAMPANTE ? 13.5f : 14.2f, 0, 27.6f); mon[0].yaw = -PI / 2; mon[0].anim = 0.7f;
+            mon[0].etat = type == MON_LOCATAIRE ? E_FIGE : E_ERRE;
+            if (strstr(shotPath, "screamer")) { tueur = 0; screamType = type; screamT = 0.2f; P.dead = 1; }
         } else if (strstr(shotPath, "ascenseur")) {
             P.pos = P.prevPos = v3(43.2f, 0, 1.5f); P.yaw = P.lampeYaw = PI / 2;
             asc.alimente = 1; asc.ouverture = 0.7f;
         } else if (strstr(shotPath, "piliers")) { P.pos = P.prevPos = v3(2.5f, 0, 29.5f); P.yaw = P.lampeYaw = PI / 2 - 0.25f; }
-        else if (strstr(shotPath, "niveau2")) { niveau_charger(2); carteNiveauT = 0; msgT = 0; R.pos = R.prevPos = v3(-50, 0, -50); }
+        else if (strstr(shotPath, "niveau3")) { niveau_charger_ex(3, 0); for (int i = 0; i < nmon; i++) mon[i].pos = v3(-50, 0, -50); }
+        else if (strstr(shotPath, "mort")) { screamType = MON_RAMPANTE; mortT = 2; P.dead = 1; }
         render(1, 0.016f);
         save_bmp(shotPath);
 #ifndef _WIN32

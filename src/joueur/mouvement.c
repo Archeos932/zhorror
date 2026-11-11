@@ -22,6 +22,7 @@ typedef struct {
     float batterie;                                       /* secondes restantes */
     float lampeYaw, lampePitch;                           /* le faisceau suit le regard avec un retard */
     float souffleT;                                       /* prochaine respiration audible (essouffle) */
+    float piegeT;                                         /* > 0 : pris dans une machoire de loup */
     int dead;
 } Player;
 static Player P;
@@ -42,6 +43,15 @@ static void player_reset(void) {
 
 static void faire_bruit(float b) { if (b > P.bruitImpulse) P.bruitImpulse = b; }
 
+/* sursaut : fait bondir le coeur (lu par jeu/screamers.c) */
+static float sursautDemande;
+static void sursauter(float bpm) { if (bpm > sursautDemande) sursautDemande = bpm; }
+
+/* bruit pose dans le monde (alarme d'un faux fusible...) : les monstres qui ecoutent l'entendent */
+static V3 bruitMondePos;
+static float bruitMondeForce;                             /* 0 = rien en ce moment */
+static void bruit_monde(V3 p, float f) { if (f >= bruitMondeForce) { bruitMondePos = p; bruitMondeForce = f; } }
+
 /* un pas de simulation : lit act[] (jamais le clavier) */
 static void player_tick(float dt) {
     P.prevPos = P.pos; P.prevOeil = P.oeil; P.prevBob = P.bob; P.prevPenche = P.penche; P.prevRoulis = P.roulis;
@@ -55,6 +65,14 @@ static void player_tick(float dt) {
     P.accroupi = act[A_ACCROUPI];
     P.court = act[A_COURIR] && !P.accroupi && !P.essouffle && iz > 0.1f && P.endurance > 0;
     float vmax = P.accroupi ? ACCROUPI_V : P.court ? COURSE_V : MARCHE_V;
+    int solIci = sol_en(P.pos.x, P.pos.z);
+    if (solIci == SOL_EAU) vmax *= EAU_FREIN;
+    if (P.piegeT > 0) {                                   /* pris au piege : on ne bouge plus, on se debat (E) */
+        P.piegeT -= dt;
+        if (actP[A_UTILISER]) { P.piegeT -= MACHOIRE_E; play(S_MACHOIRE, 0.25f, 1.4f + 0.2f * frand()); faire_bruit(0.6f); }
+        vmax = 0; il = 0; ix = iz = 0;
+        P.court = 0;
+    }
     if (P.court) {
         P.endurance -= dt;
         if (P.endurance <= 0) { P.endurance = 0; P.essouffle = 1; P.souffleT = 0; }
@@ -89,7 +107,10 @@ static void player_tick(float dt) {
     if (P.pasDist >= pasD) {
         P.pasDist -= pasD;
         P.pas++;
-        play(S_PAS, PAS_VOL * clampf(spd / COURSE_V, 0.25f, 1.0f) * (P.accroupi ? 0.3f : 1.0f), 0.9f + 0.2f * frand());
+        float pv = PAS_VOL * clampf(spd / COURSE_V, 0.25f, 1.0f) * (P.accroupi ? 0.3f : 1.0f), k2 = P.accroupi ? 0.4f : 1.0f;
+        if (solIci == SOL_EAU) { play(S_FLAQUE, pv * 1.6f + 0.15f, 0.85f + 0.3f * frand()); faire_bruit(BRUIT_EAU * k2); }
+        else if (solIci == SOL_VERRE) { play(S_VERRE, pv * 1.6f + 0.2f, 0.85f + 0.3f * frand()); faire_bruit(BRUIT_VERRE * k2); }
+        else play(S_PAS, pv, 0.9f + 0.2f * frand());
     }
 
     /* lampe */

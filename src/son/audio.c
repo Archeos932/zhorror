@@ -24,6 +24,15 @@ enum { S_BOURDON,                                         /* neons : boucle de 2
        S_HURLEMENT,                                       /* screamer de mort */
        S_STINGER,                                         /* apparition : cordes qui crissent */
        S_FAUX_BRUIT,                                      /* choc sourd au loin (faux depart) */
+       S_FLAQUE,                                          /* pas dans l'eau */
+       S_VERRE,                                           /* pas sur du verre brise */
+       S_MACHOIRE,                                        /* machoire de loup qui se referme */
+       S_ALARME,                                          /* bip du faux fusible */
+       S_CRAQUE,                                          /* os qui craquent : le Locataire bouge */
+       S_GRATTE,                                          /* griffes sur la moquette : la Rampante */
+       S_RUGISSEMENT,                                     /* le Rodeur se lance a ta poursuite */
+       S_CRI_RAMPANTE,                                    /* la Rampante a vu ta lumiere */
+       S_RADIO,                                           /* gresillement de radio (messages) */
        S_COUNT };
 typedef struct { short *data; int len; } Sound;
 /* loop : voix en boucle, jamais volee par play ; fade : baisse de volume par echantillon (arret sans clic) */
@@ -37,6 +46,7 @@ static WAVEHDR whdr[NBUF];
 static short wbuf[NBUF][BUFLEN * 2];                      /* BUFLEN images, 2 voies entrelacees */
 static int audio_ok;
 static float masterVol = 1.0f;
+#include "ambiance.c"                                     /* la musique d'horreur, synthetisee en temps reel */
 
 static int play_voice(int s, float vol, float pitch) {    /* renvoie l'index de la voix, -1 si rien */
     if (!audio_ok) return -1;
@@ -77,7 +87,9 @@ static void loop_stop(int v) {                            /* fin en 30 ms, sans 
    (son 3D : son/son3d.c). */
 static void audio_fill(short *out, int n) {
     for (int i = 0; i < n; i++) {
-        float accL = 0, accR = 0;
+        float accL = 0, accR = 0, mL, mR;
+        amb_frame(&mL, &mR);
+        accL += mL * 32768.0f; accR += mR * 32768.0f;
         for (int v = 0; v < MAXV; v++) {
             Voice *vo = &voices[v];
             if (!vo->active) continue;

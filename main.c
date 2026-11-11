@@ -28,8 +28,10 @@
 #include "src/son/son3d.c"                       /* son 3D : distance, gauche / droite, etouffe derriere les murs */
 
 #include "src/joueur/mouvement.c"                /* joueur : marche, course, penche, bruit, lampe */
-#include "src/monstres/rodeur.c"                 /* le Rodeur : aveugle, chasse au bruit */
-#include "src/jeu/niveaux.c"                     /* niveaux, fusibles, ascenseur, messages */
+#include "src/monstres/monstres.c"               /* Rodeur (bruit), Locataire (noir), Rampante (lumiere) */
+#include "src/jeu/textes.c"                      /* textes de l'histoire (genere par outils/textes.py) */
+#include "src/jeu/histoire.c"                    /* cartons tapes a la machine, messages radio */
+#include "src/jeu/niveaux.c"                     /* niveaux, monstres par niveau, pieges, fusibles, ascenseur */
 #include "src/jeu/screamers.c"                   /* peur : screamers, apparitions, coeur, drone */
 #include "src/jeu/boucle.c"                      /* game_tick (un pas de simulation), ambiance */
 

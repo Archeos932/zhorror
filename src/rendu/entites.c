@@ -113,26 +113,182 @@ static void dessiner_rodeur(float anim, float l, float bouche, float tic) {
     glPopMatrix();
 }
 
+/* tete du Locataire : visage d'homme trop pale, yeux noirs, sourire trop large */
+static void tete_locataire(float l, float bouche) {
+    float pr = 0.70f * l, pg = 0.64f * l, pb = 0.56f * l;
+    boite(0.085f, 0.115f, 0.1f, pr, pg, pb);
+    glPushMatrix(); glTranslatef(0, 0.1f, 0.01f); boite(0.09f, 0.03f, 0.105f, 0.1f * l, 0.08f * l, 0.06f * l); glPopMatrix();   /* cheveux */
+    for (int s = -1; s <= 1; s += 2) {                    /* yeux tout noirs */
+        glPushMatrix(); glTranslatef(s * 0.035f, 0.025f, -0.1f); boite(0.018f, 0.013f, 0.004f, 0, 0, 0); glPopMatrix();
+    }
+    glPushMatrix(); glTranslatef(0, -0.055f - 0.03f * bouche, -0.1f);   /* le sourire, d'une oreille a l'autre */
+    boite(0.075f, 0.006f + 0.035f * bouche, 0.004f, 0.02f, 0, 0);
+    for (int d = -5; d <= 5; d++) { glPushMatrix(); glTranslatef(d * 0.013f, 0.004f + 0.03f * bouche, -0.003f); boite(0.005f, 0.006f, 0.003f, 0.8f * l, 0.78f * l, 0.66f * l); glPopMatrix(); }
+    glPopMatrix();
+}
+
+/* le Locataire : homme trop grand en chemise de bureau jaunie, tete couchee sur l'epaule, bras le long du corps */
+static void dessiner_locataire(float anim, float l, int fige) {
+    float q = fige ? floorf(anim * 4) / 4 : anim;
+    float sw = sinf(q * 3.0f) * 16;
+    float cr = 0.58f * l, cg = 0.52f * l, cb = 0.30f * l;   /* chemise */
+    for (int s = -1; s <= 1; s += 2) {                    /* jambes, pantalon sombre */
+        glPushMatrix(); glTranslatef(s * 0.1f, 1.05f, 0); glRotatef(s * sw, 1, 0, 0);
+        membre(1.05f, 0.065f, 0.11f * l, 0.1f * l, 0.09f * l);
+        glPopMatrix();
+    }
+    glPushMatrix(); glTranslatef(0, 1.45f, 0); boite(0.2f, 0.4f, 0.11f, cr, cg, cb);   /* torse */
+    glPushMatrix(); glTranslatef(0, 0.2f, -0.112f); boite(0.025f, 0.2f, 0.004f, 0.25f * l, 0.05f * l, 0.05f * l); glPopMatrix();   /* cravate */
+    for (int s = -1; s <= 1; s += 2) {                    /* bras raides, mains trop longues */
+        glPushMatrix(); glTranslatef(s * 0.25f, 0.36f, 0); glRotatef(-s * sw * 0.3f, 1, 0, 0);
+        membre(0.95f, 0.05f, cr * 0.95f, cg * 0.95f, cb * 0.95f);
+        glTranslatef(0, -0.95f, 0); membre(0.25f, 0.04f, 0.65f * l, 0.6f * l, 0.52f * l);
+        glPopMatrix();
+    }
+    glTranslatef(0, 0.45f, 0); boite(0.04f, 0.06f, 0.04f, 0.65f * l, 0.6f * l, 0.52f * l);   /* cou */
+    glTranslatef(0.13f, -0.02f, 0); glRotatef(-82, 0, 0, 1);   /* la tete, couchee a angle droit */
+    tete_locataire(l, 0.25f);
+    glPopMatrix();
+}
+
+/* tete de la Rampante : enormes yeux (qui brillent dans le noir), gueule fendue */
+static void tete_rampante(float l, float bouche, float eclat) {
+    float pr = 0.66f * l, pg = 0.64f * l, pb = 0.6f * l;
+    boite(0.13f, 0.09f, 0.12f, pr, pg, pb);
+    glDisable(GL_FOG);
+    for (int s = -1; s <= 1; s += 2) {
+        glPushMatrix(); glTranslatef(s * 0.06f, 0.025f, -0.118f);
+        boite(0.042f, 0.035f, 0.006f, eclat, eclat, eclat * 0.85f);
+        glTranslatef(0, 0, -0.004f); boite(0.008f, 0.03f, 0.003f, 0, 0, 0);   /* pupille fendue */
+        glPopMatrix();
+    }
+    glEnable(GL_FOG);
+    glPushMatrix(); glTranslatef(0, -0.06f, -0.118f); boite(0.1f, 0.012f + 0.06f * bouche, 0.004f, 0.03f, 0, 0);
+    for (int d = -6; d <= 6; d++) { glPushMatrix(); glTranslatef(d * 0.015f, 0.008f + 0.05f * bouche, -0.003f); boite(0.004f, 0.012f, 0.003f, 0.85f * l, 0.83f * l, 0.72f * l); glPopMatrix(); }
+    glPopMatrix();
+}
+
+/* la Rampante : a quatre pattes, longues pattes d'araignee, corps colle au sol */
+static void dessiner_rampante(float anim, float l, float t, float eclat) {
+    float pr = 0.62f * l, pg = 0.6f * l, pb = 0.56f * l;
+    glPushMatrix(); glTranslatef(0, 0.42f, 0); boite(0.17f, 0.1f, 0.5f, pr, pg, pb);   /* corps */
+    for (int k = 0; k < 6; k++) { glPushMatrix(); glTranslatef(0, 0.1f, -0.35f + k * 0.13f); boite(0.03f, 0.02f, 0.03f, pr * 0.8f, pg * 0.8f, pb * 0.8f); glPopMatrix(); }   /* vertebres */
+    for (int s = -1; s <= 1; s += 2)
+        for (int av = -1; av <= 1; av += 2) {             /* pattes : le genou plus haut que le dos */
+            float ph = sinf(anim * 4 + (s * av > 0 ? 0 : PI)) * 25;
+            glPushMatrix(); glTranslatef(s * 0.15f, 0.05f, av * -0.38f);
+            glRotatef(-s * 55.0f, 0, 0, 1); glRotatef(ph, 1, 0, 0);   /* cuisse : vers le haut et l'exterieur */
+            glTranslatef(0, 0.25f, 0); boite(0.03f, 0.25f, 0.03f, pr, pg, pb);
+            glTranslatef(0, 0.25f, 0); glRotatef(s * 150.0f, 0, 0, 1);   /* tibia : redescend vers le sol, plus loin */
+            glTranslatef(0, 0.36f, 0); boite(0.025f, 0.36f, 0.025f, pr * 0.9f, pg * 0.9f, pb * 0.9f);
+            glPopMatrix();
+        }
+    glTranslatef(0, 0.02f + 0.03f * sinf(t * 31), -0.62f); glRotatef(sinf(t * 7) * 12, 0, 0, 1);
+    tete_rampante(l, 0.3f + 0.2f * sinf(t * 3), eclat);
+    glPopMatrix();
+}
+
+/* n'importe quel monstre, a l'origine, regardant vers -z */
+static void dessiner_monstre(int type, float anim, float l, float t, int etat) {
+    if (type == MON_LOCATAIRE) dessiner_locataire(anim, l, etat == E_FIGE);
+    else if (type == MON_RAMPANTE) dessiner_rampante(anim, l, t, 0.35f + l * 0.6f);
+    else dessiner_rodeur(anim, l, etat == E_CHASSE ? 0.35f : 0.1f, etat == E_ECOUTE ? sinf(t * 37) * 18 * (sinf(t * 3) > 0.3f) : 0);
+}
+
+/* sol : flaques (sombres, luisantes, rides) et verre brise (eclats qui accrochent la lampe) */
+static void dessiner_sol(float t) {
+    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_FALSE);
+    glBegin(GL_QUADS);
+    for (int z = 0; z < carteH; z++)
+        for (int x = 0; x < carteW; x++) {
+            if (sol[z][x] != SOL_EAU) continue;
+            for (int sz = 0; sz < 2; sz++)
+                for (int sx = 0; sx < 2; sx++) {
+                    static const float cu[4] = { 0, 0, 1, 1 }, cv[4] = { 0, 1, 1, 0 };
+                    for (int k = 0; k < 4; k++) {
+                        float px = x + (sx + cu[k]) * 0.5f, pz = z + (sz + cv[k]) * 0.5f;
+                        float ride = 0.5f + 0.5f * sinf(t * 1.7f + px * 4.1f + pz * 3.3f) * sinf(t * 1.1f - px * 2.3f + pz * 5.2f);
+                        float l = lum_entite(v3(px, 0.05f, pz), t);
+                        float c = 0.03f + l * (0.12f + 0.35f * ride * ride);
+                        glColor4f(c * 0.8f, c * 0.9f, c, 0.62f);
+                        glVertex3f(px, 0.006f, pz);
+                    }
+                }
+        }
+    glEnd();
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+    glBegin(GL_TRIANGLES);
+    for (int z = 0; z < carteH; z++)
+        for (int x = 0; x < carteW; x++) {
+            if (sol[z][x] != SOL_VERRE) continue;
+            float l = lum_entite(v3(x + 0.5f, 0.05f, z + 0.5f), t);
+            for (int k = 0; k < 14; k++) {
+                unsigned h = hash32((unsigned)(x * 7919 + z * 104729 + k * 31));
+                float px = x + (h & 255) / 255.0f, pz = z + ((h >> 8) & 255) / 255.0f, r = 0.03f + ((h >> 16) & 15) / 300.0f, a = (h >> 20) * 0.001f;
+                float e = ((h >> 24) & 7) == 0 ? 2.2f : 1.0f;   /* certains eclats brillent */
+                glColor3f(0.55f * l * e, 0.62f * l * e, 0.66f * l * e);
+                glVertex3f(px + cosf(a) * r, 0.008f, pz + sinf(a) * r);
+                glVertex3f(px + cosf(a + 2.2f) * r, 0.008f, pz + sinf(a + 2.2f) * r);
+                glVertex3f(px + cosf(a + 4.0f) * r * 0.6f, 0.008f, pz + sinf(a + 4.0f) * r * 0.6f);
+            }
+        }
+    glEnd();
+}
+
+/* machoire de loup : anneau de dents, ouvert (arme) ou referme */
+static void dessiner_machoire(const Piege *pg, float t) {
+    float l = lum_entite(v3(pg->pos.x, 0.1f, pg->pos.z), t) * 1.4f + 0.05f;   /* metal : il accroche la lumiere */
+    glPushMatrix(); glTranslatef(pg->pos.x, 0.02f, pg->pos.z);
+    int gx = (int)floorf(pg->pos.x), gz = (int)floorf(pg->pos.z);
+    if (!cell_mur(gx - 1, gz) && !cell_mur(gx + 1, gz)) glRotatef(90, 0, 1, 0);   /* en travers du couloir */
+    boite(0.07f, 0.02f, 0.07f, 0.45f * l, 0.42f * l, 0.4f * l);   /* plaque */
+    glPushMatrix(); glTranslatef(0.3f, -0.012f, 0); boite(0.2f, 0.006f, 0.008f, 0.35f * l, 0.33f * l, 0.3f * l); glPopMatrix();   /* chaine */
+    for (int s = -1; s <= 1; s += 2) {
+        glPushMatrix();
+        glRotatef(pg->arme ? -s * 78.0f : -s * 8.0f, 1, 0, 0);   /* les deux branches levees */
+        glTranslatef(0, 0, s * 0.15f);
+        boite(0.24f, 0.018f, 0.018f, 0.7f * l, 0.65f * l, 0.58f * l);
+        for (int d = -7; d <= 7; d++) {
+            glPushMatrix(); glTranslatef(d * 0.032f, 0.04f, 0); boite(0.008f, 0.04f, 0.008f, 0.85f * l, 0.8f * l, 0.72f * l); glPopMatrix();
+        }
+        glPopMatrix();
+    }
+    glPopMatrix();
+}
+
 static void dessiner_entites(float t) {
     glDisable(GL_TEXTURE_2D);
     glDisable(GL_CULL_FACE);
     fog_scene();
-    /* le Rodeur */
-    if (R.actif) {
-        V3 p = vlerp(R.prevPos, R.pos, 1);
-        float l = lum_entite(v3(p.x, 1.6f, p.z), t);
-        float tic = R.etat == R_ECOUTE ? sinf(t * 37) * 18 * (sinf(t * 3) > 0.3f) : 0;
-        glPushMatrix(); glTranslatef(p.x, 0, p.z); glRotatef(-R.yaw * 180.0f / PI, 0, 1, 0);
-        dessiner_rodeur(R.anim, l, 0, tic);
+    dessiner_sol(t);
+    for (int i = 0; i < nmon; i++) {                      /* les monstres */
+        Monstre *m = &mon[i];
+        if (!m->actif) continue;
+        V3 p = m->pos;
+        float l = lum_entite(v3(p.x, 1.4f, p.z), t);
+        glPushMatrix(); glTranslatef(p.x, 0, p.z); glRotatef(-m->yaw * 180.0f / PI, 0, 1, 0);
+        dessiner_monstre(m->type, m->anim, l, t, m->etat);
         glPopMatrix();
     }
-    /* apparition : la meme chose, face a toi, immobile */
-    if (apparitionT >= 0) {
+    if (apparitionT >= 0) {                               /* apparition : face a toi, immobile */
         V3 p = apparitionPos;
         float yaw = atan2f(P.pos.x - p.x, -(P.pos.z - p.z));
         float l = lum_entite(v3(p.x, 1.6f, p.z), t) + 0.6f;
         glPushMatrix(); glTranslatef(p.x, 0, p.z); glRotatef(-yaw * 180.0f / PI, 0, 1, 0);
-        dessiner_rodeur(0, l, 0.3f, sinf(t * 50) * 10);
+        dessiner_monstre(apparitionType, 0, l, t, E_CHASSE);
+        glPopMatrix();
+    }
+    for (int i = 0; i < npieges; i++) {                   /* pieges */
+        Piege *pg = &pieges[i];
+        if (pg->type == PIEGE_MACHOIRE) { dessiner_machoire(pg, t); continue; }
+        float l = lum_entite(v3(pg->pos.x, 0.3f, pg->pos.z), t);   /* faux fusible : presque pareil qu'un vrai */
+        glPushMatrix(); glTranslatef(pg->pos.x, 0.07f, pg->pos.z); glRotatef((float)(i * 53), 0, 1, 0);
+        boite(0.14f, 0.07f, 0.09f, 0.45f * l, 0.45f * l, 0.48f * l);
+        glTranslatef(0, 0.07f, -0.03f); boite(0.05f, 0.012f, 0.025f, 0.55f * l, 0.15f * l, 0.1f * l);
+        float led = pg->arme ? (fmodf(t + i * 0.29f, 1.3f) < 0.12f ? 1.0f : 0.15f) : (fmodf(t, 0.2f) < 0.1f ? 1.0f : 0.2f);
+        glTranslatef(0.09f, 0, 0.04f); glDisable(GL_FOG); boite(0.012f, 0.012f, 0.012f, led, led * 0.08f, led * 0.05f); glEnable(GL_FOG);
         glPopMatrix();
     }
     /* fusibles : petite boite grise et voyant rouge qui clignote (repere dans le noir) */
@@ -182,16 +338,19 @@ static void dessiner_entites(float t) {
     glColor3f(1, 1, 1);
 }
 
-/* screamer : la tete, collee a la camera (appele avec une matrice de vue identite) */
-static void dessiner_screamer(float s) {
-    float shake = (1 - fminf(1, s / SCREAMER_MORT_T)) * 0.03f;
+/* screamer : la tete du tueur, collee a la camera (matrice de vue identite). gros : 0 plan serre, 1 tres gros plan */
+static void dessiner_screamer(float s, int type, int gros) {
+    float shake = (1 - fminf(1, s / SCREAMER_MORT_T)) * 0.04f;
     float flash = fmodf(s, 0.12f) < 0.06f ? 1.7f : 0.85f;
-    float z = -1.1f + fminf(s / 0.12f, 1) * 0.55f;       /* elle se jette sur toi en 0,12 s */
+    float z = (gros ? -0.85f : -1.1f) + fminf(s / 0.1f, 1) * 0.55f;   /* elle se jette sur toi en 0,1 s */
     glDisable(GL_FOG); glDisable(GL_TEXTURE_2D);
     glPushMatrix();
-    glTranslatef(sinf(s * 91) * shake, 0.03f + cosf(s * 77) * shake, z);
-    glRotatef(180, 0, 1, 0);                              /* face a toi */
+    glTranslatef(sinf(s * 91) * shake, (gros ? 0.06f : 0.03f) + cosf(s * 77) * shake, z);
+    glRotatef(180, 0, 1, 0);
     glRotatef(sinf(s * 40) * 8 + 12, 0, 0, 1);
-    tete(flash, fminf(1, s * 6));
+    float b = fminf(1, s * 6);
+    if (type == MON_LOCATAIRE) tete_locataire(flash, b);
+    else if (type == MON_RAMPANTE) tete_rampante(flash, b, 1.6f);
+    else tete(flash, b);
     glPopMatrix();
 }

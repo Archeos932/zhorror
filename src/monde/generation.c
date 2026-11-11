@@ -5,6 +5,8 @@
    labyrinthe de bureaux), zones noires. Puis : cases isolees rebouchees, cabine d'ascenseur creusee dans un mur au
    bout le plus lointain, fusibles disperses loin du depart et loin les uns des autres. */
 
+static int genEau = 3, genVerre = 3, genMachoires = 2, genAlarmes = 0;   /* reglees par le niveau (niveaux.c) */
+
 static int irand(int n) { return n > 0 ? (int)(frand() * n) % n : 0; }
 
 static void creuser(int x0, int z0, int x1, int z1) {    /* rectangle inclus, en gardant le bord de la carte */
@@ -104,6 +106,42 @@ static void generer_niveau(unsigned graine, int w, int h) {
                 }
             if (bx >= 0) add_fusible(bx, bz);
         }
+    }
+    for (int k = 0; k < genEau; k++) {                    /* flaques : taches rondes et irregulieres */
+        int x = 1 + irand(carteW - 2), z = 1 + irand(carteH - 2), r = 1 + irand(3);
+        if (grille[z][x] || distCase[z][x] < 4) continue;
+        for (int dz = -r; dz <= r; dz++)
+            for (int dx = -r; dx <= r; dx++)
+                if (dx * dx + dz * dz <= r * r + irand(3) && !cell_mur(x + dx, z + dz)) sol[z + dz][x + dx] = SOL_EAU;
+    }
+    for (int k = 0; k < genVerre; k++) {                  /* verre brise : petites plaques */
+        int x = 1 + irand(carteW - 2), z = 1 + irand(carteH - 2);
+        if (grille[z][x] || distCase[z][x] < 4) continue;
+        for (int j = 0; j < 2 + irand(3); j++) {
+            int px = x + irand(3) - 1, pz = z + irand(3) - 1;
+            if (!cell_mur(px, pz)) sol[pz][px] = SOL_VERRE;
+        }
+    }
+    for (int k = 0, essais = 0; k < genMachoires && essais < 2000; essais++) {   /* machoires : dans les couloirs */
+        int x = 1 + irand(carteW - 2), z = 1 + irand(carteH - 2);
+        if (grille[z][x] || distCase[z][x] < 6) continue;
+        int ex = !cell_mur(x - 1, z) && !cell_mur(x + 1, z) && cell_mur(x, z - 1) && cell_mur(x, z + 1);
+        int ez = !cell_mur(x, z - 1) && !cell_mur(x, z + 1) && cell_mur(x - 1, z) && cell_mur(x + 1, z);
+        if (!ex && !ez) continue;
+        int libre = 1;
+        for (int i = 0; i < nfus; i++) if ((int)fus[i].pos.x == x && (int)fus[i].pos.z == z) libre = 0;
+        for (int i = 0; i < npieges; i++) if (fabsf(pieges[i].pos.x - (x + 0.5f)) + fabsf(pieges[i].pos.z - (z + 0.5f)) < 6) libre = 0;
+        if (asc.actif && abs(x - asc.gx) + abs(z - asc.gz) < 4) libre = 0;
+        if (!libre) continue;
+        add_piege(x, z, PIEGE_MACHOIRE); k++;
+    }
+    for (int k = 0, essais = 0; k < genAlarmes && essais < 2000; essais++) {    /* faux fusibles : contre un mur, loin */
+        int x = 1 + irand(carteW - 2), z = 1 + irand(carteH - 2);
+        if (grille[z][x] || distCase[z][x] < 10) continue;
+        int murs = 0;
+        for (int j = 0; j < 4; j++) murs += cell_mur(x + cotes[j][0], z + cotes[j][1]);
+        if (!murs) continue;
+        add_piege(x, z, PIEGE_ALARME); k++;
     }
     placer_neons();
     {                                                     /* le joueur regarde vers la plus longue ouverture */
