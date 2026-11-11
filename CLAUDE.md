@@ -45,9 +45,19 @@ Le propriétaire est francophone : réponses, commentaires et docs **en françai
 - **Réseau** (étape 4) : reprendre `src/reseau/` de VELOCITY ; l'hôte (id 0) fait autorité sur monstres, objets,
   portes, morts et directeur ; incrémenter `NET_VER` à chaque changement de paquet ou d'événement.
 
-## État actuel (étape 0)
+## État actuel (étapes 1 + morceaux de 3 et 5 : jouable en solo)
 
-Squelette jouable en solo : écran titre, salle de test jaune (piliers, néons dont un qui clignote), marche /
-course avec endurance / accroupi, collisions simples (`salle_test.c`), bourdonnement des néons et pas
-synthétisés, manette, pause, captures et 15 tests. **Pas encore** : réseau, carte en boîtes (`carte.c` de
-VELOCITY, étape 1), textures et lightmaps, lampe torche, VHS, réglages sauvegardés (`bourdonnement.ini`).
+- **Monde en grille** (`src/monde/carte.c`) : cases de 1 m, néons (`NEON_OK/FOU/MORT/ASC`), ascenseur, fusibles,
+  `ray_grille` (rayons en suivant les cases), collisions, distances (`carte_distances_dans`). Niveau 1 fait à la main
+  (`niveau_essai.c`, légende dans `carte_charger`), niveaux 2+ générés par graine (`generation.c` ; un bout de mur
+  qui couperait le niveau est retiré).
+- **Lumière** (`src/rendu/eclairage.c`) : précalcul CPU (testable), lightmaps fixe + dynamique (néons fous /
+  ascenseur) dans un atlas 2048² ; `monde.c` : multitexture ×2, passe additive des néons dynamiques, **lampe
+  projetée** (glTexGen S/T/R/Q EYE_LINEAR + matrice de texture en frustum, portée = brouillard noir).
+- **Le Rôdeur** (`src/monstres/rodeur.c`) : aveugle, n'entend que `P.bruit` (marche, course, lampe, cri…),
+  erre autour du joueur, écoute, enquête, poursuit ; chemins = descente de la carte de distances vers sa cible.
+- **Peur** (`src/jeu/screamers.c`) : screamer de mort, apparitions dans le faisceau, faux bruits, cœur, drone,
+  lampe qui grésille quand il est près. **Objectif** (`src/jeu/niveaux.c`) : 3 fusibles → ascenseur → niveau suivant.
+- Son 3D (`src/son/son3d.c`) : gauche/droite, distance, étouffé derrière un mur.
+- Captures : `--shot` avec `menu`, `jeu`, `noir`, `rodeur`, `screamer`, `ascenseur`, `piliers`, `niveau2`.
+- **Pas encore** : réseau (étape 4), VHS, réglages sauvegardés, histoire/textes du scénario (étape 6).

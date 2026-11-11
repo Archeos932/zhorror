@@ -11,10 +11,23 @@ enum { S_BOURDON,                                         /* neons : boucle de 2
        S_PAS,                                             /* pas sur moquette mouillee */
        S_SOUFFLE,                                         /* a bout de souffle */
        S_CLIC,                                            /* bouton de menu */
+       S_LAMPE,                                           /* clic de la lampe torche */
+       S_FUSIBLE,                                         /* fusible ramasse */
+       S_DING,                                            /* ascenseur alimente / arrive */
+       S_PORTE,                                           /* portes d'ascenseur */
+       S_COEUR,                                           /* battement de coeur */
+       S_CRI,                                             /* le joueur crie */
+       S_DRONE,                                           /* nappe grave de tension (boucle de 4 s) */
+       S_RODEUR_PAS,                                      /* pas lourd et mouille du Rodeur */
+       S_RODEUR_SOUFFLE,                                  /* respiration rauque (boucle de 3 s) */
+       S_RODEUR_CLIC,                                     /* claquements : il "ecoute" */
+       S_HURLEMENT,                                       /* screamer de mort */
+       S_STINGER,                                         /* apparition : cordes qui crissent */
+       S_FAUX_BRUIT,                                      /* choc sourd au loin (faux depart) */
        S_COUNT };
 typedef struct { short *data; int len; } Sound;
 /* loop : voix en boucle, jamais volee par play ; fade : baisse de volume par echantillon (arret sans clic) */
-typedef struct { int snd, active, loop; float pos, step, vol, fade; } Voice;
+typedef struct { int snd, active, loop; float pos, step, vol, fade, gl, gr; } Voice;   /* gl, gr : gains gauche / droite */
 static Sound sounds[S_COUNT];
 static Voice voices[MAXV];
 #ifdef _WIN32
@@ -36,6 +49,7 @@ static int play_voice(int s, float vol, float pitch) {    /* renvoie l'index de 
     if (voices[best].active && voices[best].loop) return -1;
     voices[best].snd = s; voices[best].active = 1; voices[best].pos = 0;
     voices[best].step = pitch; voices[best].vol = vol; voices[best].loop = 0; voices[best].fade = 0;
+    voices[best].gl = voices[best].gr = 1;
     return best;
 }
 static void play(int s, float vol, float pitch) { play_voice(s, vol, pitch); }
@@ -50,12 +64,20 @@ static int play_loop(int s, float vol, float pitch) {     /* renvoie index + 1, 
 static void loop_set(int v, float vol, float pitch) {
     if (v > 0 && voices[v - 1].active && voices[v - 1].loop) { voices[v - 1].vol = vol; voices[v - 1].step = pitch; }
 }
+static void voice_pan(int v, float gl, float gr) {       /* v : index de voix (play_voice) */
+    if (v >= 0 && v < MAXV) { voices[v].gl = gl; voices[v].gr = gr; }
+}
+static void loop_stop(int v) {                            /* fin en 30 ms, sans clic */
+    if (v <= 0 || !voices[v - 1].active || !voices[v - 1].loop) return;
+    voices[v - 1].loop = 0;
+    voices[v - 1].fade = fmaxf(voices[v - 1].vol, 0.001f) / (0.03f * SR);
+}
 
-/* n = nombre d'images audio ; out = n paires gauche / droite entrelacees. Bruitages mono (au centre) pour l'instant :
-   le son 3D (panoramique, distance, etouffement) arrive a l'etape 3. */
+/* n = nombre d'images audio ; out = n paires gauche / droite entrelacees. Chaque voix a ses gains gauche / droite
+   (son 3D : son/son3d.c). */
 static void audio_fill(short *out, int n) {
     for (int i = 0; i < n; i++) {
-        float acc = 0;
+        float accL = 0, accR = 0;
         for (int v = 0; v < MAXV; v++) {
             Voice *vo = &voices[v];
             if (!vo->active) continue;
@@ -68,11 +90,12 @@ static void audio_fill(short *out, int n) {
                 p = (int)vo->pos;
             }
             float f = vo->pos - p;
-            acc += (s->data[p] * (1 - f) + s->data[p + 1] * f) * vo->vol;
+            float smp = (s->data[p] * (1 - f) + s->data[p + 1] * f) * vo->vol;
+            accL += smp * vo->gl; accR += smp * vo->gr;
             vo->pos += vo->step;
         }
-        short o = (short)(tanhf(acc / 32768.0f * 0.7f * masterVol) * 32000.0f);
-        out[2 * i] = o; out[2 * i + 1] = o;
+        out[2 * i] = (short)(tanhf(accL / 32768.0f * 0.7f * masterVol) * 32000.0f);
+        out[2 * i + 1] = (short)(tanhf(accR / 32768.0f * 0.7f * masterVol) * 32000.0f);
     }
 }
 

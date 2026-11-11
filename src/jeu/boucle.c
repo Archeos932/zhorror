@@ -2,30 +2,47 @@
    Morceau de main.c : inclus dans l'ordre, ne se compile pas seul (voir main.c). */
 
 static int bourdonVoice;                                  /* voix en boucle du bourdonnement des neons */
-static int neonEtat = 1;                                  /* dernier etat du neon fou (pour son gresillement) */
+static unsigned char neonEtat[MAXNEON];                   /* dernier etat de chaque neon (gresillement au changement) */
 
 static void reset_game(void) {
-    player_reset();
     gameT = 0;
-    neonEtat = 1;
+    niveau_charger(1);
+    for (int i = 0; i < nneons; i++) neonEtat[i] = (unsigned char)neon_allume(i, 0);
 }
 
 static void game_tick(float dt) {
     input_poll();
     gameT += dt;
-    player_tick(dt);
-    int e = neon_allume(NEON_FOU, gameT);
-    if (e != neonEtat) {
-        if (!e) play(S_GRESILLE, 0.5f, 0.9f + 0.2f * frand());
-        neonEtat = e;
+    if (screamT < 0 && mortT < 0) {
+        player_tick(dt);
+        rodeur_tick(dt);
+        objectif_tick(dt);
+    } else {
+        P.prevPos = P.pos;
+    }
+    ecoutePos = P.pos; ecouteYaw = P.yaw;
+    peur_tick(dt);
+    for (int i = 0; i < nneons; i++) {                    /* les neons fous gresillent quand ils lachent */
+        if (!neon_dynamique(i)) continue;
+        int e = neon_allume(i, gameT);
+        if (e != neonEtat[i]) {
+            if (!e && neons[i].etat == NEON_FOU) play3d(S_GRESILLE, v3(neons[i].x, 2.7f, neons[i].z), 0.6f, 0.9f + 0.2f * frand(), 9);
+            neonEtat[i] = (unsigned char)e;
+        }
     }
 }
 
-/* volume du bourdonnement selon l'ecran (appele a chaque image) */
+/* sons continus (appele a chaque image) */
 static void ambiance_follow(void) {
     if (!audio_ok) return;
     if (!bourdonVoice) bourdonVoice = play_loop(S_BOURDON, BOURDON_VOL_MENU, 1.0f);
-    float v = appState == APP_GAME ? BOURDON_VOL_JEU : BOURDON_VOL_MENU;
-    if (appState == APP_GAME && !neonEtat) v *= 0.55f;    /* le neon fou coupe : le bourdon baisse avec lui */
+    float v = BOURDON_VOL_MENU;
+    if (appState == APP_GAME) {                           /* le bourdon suit la lumiere : quasi muet dans le noir */
+        int n = 0;
+        for (int i = 0; i < nneons; i++)
+            if (neon_allume(i, gameT) && fabsf(neons[i].x - P.pos.x) < 6 && fabsf(neons[i].z - P.pos.z) < 6) n++;
+        v = BOURDON_VOL_JEU * fminf(1, 0.15f + n * 0.3f) * (screamT >= 0 ? 0 : 1);
+    }
     loop_set(bourdonVoice, v, 1.0f);
+    peur_sons();
 }

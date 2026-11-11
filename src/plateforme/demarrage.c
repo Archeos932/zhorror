@@ -73,12 +73,25 @@ static int bourdon_main(const char *cmd) {
     glHint(GL_FOG_HINT, GL_NICEST);
     make_font(0, 18); make_font(1, 28); make_font(2, 56);
     for (int i = 0; i < 3; i++) make_font_atlas(i);
+    make_textures();
+    glReady = 1;
     make_sounds();
     reset_game();
 
     if (shotMode) {                                       /* capture : une image fixe, puis on quitte */
+        appState = APP_GAME; gameT = 30; carteNiveauT = 0; msgT = 0;
+        R.pos = R.prevPos = v3(20.5f, 0, 31.5f);         /* le Rodeur loin, sauf scene "rodeur" */
         if (strstr(shotPath, "menu")) { appState = APP_MENU; nowT = 20; }
-        else { appState = APP_GAME; P.yaw = 0.35f; gameT = 1; }
+        else if (strstr(shotPath, "noir")) { P.pos = P.prevPos = v3(40.5f, 0, 7.5f); P.yaw = P.lampeYaw = 0; }   /* zone sans neon */
+        else if (strstr(shotPath, "rodeur") || strstr(shotPath, "screamer")) {
+            P.pos = P.prevPos = v3(10.5f, 0, 27.5f); P.yaw = P.lampeYaw = PI / 2;
+            R.pos = R.prevPos = v3(14.2f, 0, 27.6f); R.yaw = -PI / 2; R.anim = 0.7f;
+            if (strstr(shotPath, "screamer")) screamT = 0.32f;
+        } else if (strstr(shotPath, "ascenseur")) {
+            P.pos = P.prevPos = v3(43.2f, 0, 1.5f); P.yaw = P.lampeYaw = PI / 2;
+            asc.alimente = 1; asc.ouverture = 0.7f;
+        } else if (strstr(shotPath, "piliers")) { P.pos = P.prevPos = v3(2.5f, 0, 29.5f); P.yaw = P.lampeYaw = PI / 2 - 0.25f; }
+        else if (strstr(shotPath, "niveau2")) { niveau_charger(2); carteNiveauT = 0; msgT = 0; R.pos = R.prevPos = v3(-50, 0, -50); }
         render(1, 0.016f);
         save_bmp(shotPath);
 #ifndef _WIN32

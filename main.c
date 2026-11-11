@@ -22,12 +22,23 @@
 #include "src/entrees/actions.c"                 /* touches physiques, actions A_*, touches par defaut */
 #include "src/entrees/saisie.c"                  /* input_poll, capture de la souris, fenetre (winW, winH) */
 
-#include "src/monde/salle_test.c"                /* etape 0 : salle de test, neons, collisions */
-#include "src/joueur/mouvement.c"                /* joueur : marche, course, endurance, accroupi, pas */
+#include "src/monde/carte.c"                     /* grille, neons, ascenseur, fusibles, collisions, rayons */
+#include "src/monde/generation.c"                /* niveaux generes par graine */
+#include "src/monde/niveau_essai.c"              /* niveau 1 fait a la main */
+#include "src/son/son3d.c"                       /* son 3D : distance, gauche / droite, etouffe derriere les murs */
+
+#include "src/joueur/mouvement.c"                /* joueur : marche, course, penche, bruit, lampe */
+#include "src/monstres/rodeur.c"                 /* le Rodeur : aveugle, chasse au bruit */
+#include "src/jeu/niveaux.c"                     /* niveaux, fusibles, ascenseur, messages */
+#include "src/jeu/screamers.c"                   /* peur : screamers, apparitions, coeur, drone */
 #include "src/jeu/boucle.c"                      /* game_tick (un pas de simulation), ambiance */
 
 #include "src/rendu/base.c"                      /* polices, camera, passage en 2D */
+#include "src/rendu/textures.c"                  /* textures fabriquees : papier peint, moquette, plafond, lampe */
+#include "src/rendu/eclairage.c"                 /* faces du monde, lightmaps des neons (precalcul) */
+#include "src/rendu/monde.c"                     /* dessin du monde : multitexture, neons fous, lampe projetee */
 #include "src/interface/texte.c"                 /* texte et rectangles 2D */
+#include "src/rendu/entites.c"                   /* Rodeur, fusibles, ascenseur, tete du screamer */
 #include "src/interface/menus.c"                 /* ecran titre, pause, incrustation camescope */
 #include "src/rendu/render.c"                    /* render() : l'image complete */
 

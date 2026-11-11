@@ -1,11 +1,12 @@
-/* BOURDONNEMENT - TOUS les #define de reglage : joueur, camera, son, entrees
+/* BOURDONNEMENT - TOUS les #define de reglage : joueur, camera, lampe, monde, lumiere, monstre, peur, son, entrees
    Morceau de main.c : inclus dans l'ordre, ne se compile pas seul (voir main.c). */
 
 /* --- joueur (m/s, s) --- */
 #define MARCHE_V          1.6f    /* marche */
 #define COURSE_V          4.2f    /* course (tant qu'il reste de l'endurance) */
-#define ACCROUPI_V        0.9f    /* accroupi : lent et silencieux */
-#define ACCEL_K           10.0f   /* la vitesse rejoint la vitesse voulue a ce taux (1/s) */
+#define ACCROUPI_V        0.9f    /* accroupi : lent et presque silencieux */
+#define ACCEL_K           7.0f    /* la vitesse rejoint la vitesse voulue a ce taux (1/s) quand on pousse */
+#define FREIN_K           11.0f   /* ... et quand on lache (on s'arrete un peu plus vite qu'on ne demarre) */
 #define ENDURANCE_MAX     6.0f    /* secondes de course a pleine endurance */
 #define ENDURANCE_RECUP   10.0f   /* secondes pour la remplir de zero */
 #define ESSOUFFLE_SEUIL   0.3f    /* a bout de souffle : plus de course avant d'avoir repris cette part */
@@ -13,23 +14,82 @@
 #define OEIL_DEBOUT       1.65f   /* hauteur des yeux */
 #define OEIL_ACCROUPI     1.0f
 #define OEIL_K            8.0f    /* vitesse de passage debout <-> accroupi (1/s) */
+#define PENCHE_DIST       0.38f   /* se pencher : decalage lateral de la tete (m) */
+#define PENCHE_ROULIS     11.0f   /* ... et inclinaison (degres) */
+#define PENCHE_K          9.0f    /* vitesse de la penche (1/s) */
+#define ROULIS_STRAFE     1.6f    /* inclinaison (degres) a pleine vitesse laterale */
+
+/* --- bruit emis par le joueur (0 a 2) : ce que le monstre entend --- */
+#define BRUIT_ACCROUPI    0.08f
+#define BRUIT_MARCHE      0.40f
+#define BRUIT_COURSE      1.00f
+#define BRUIT_SOUFFLE     0.30f   /* a bout de souffle */
+#define BRUIT_LAMPE       0.25f   /* clic de la lampe (impulsion) */
+#define BRUIT_RAMASSER    0.35f
+#define BRUIT_CRI         2.00f
+#define BRUIT_DECROIT     2.5f    /* une impulsion de bruit retombe a ce taux (1/s) */
 
 /* --- camera --- */
 #define FOV_V             70.0f   /* champ de vision vertical (degres) */
-#define BOB_AMP           0.035f  /* balancement de tete : amplitude verticale (m) a la course */
+#define FOV_COURSE        7.0f    /* + en courant */
+#define BOB_AMP           0.040f  /* balancement de tete : amplitude verticale (m) a la course */
+#define BOB_LAT           0.018f  /* ... et laterale */
 #define PAS_DIST_MARCHE   0.75f   /* distance entre deux pas (m) */
 #define PAS_DIST_COURSE   1.05f
 #define CAM_NEAR          0.05f
-#define CAM_FAR           80.0f
+#define CAM_FAR           60.0f
 
-/* --- salle de test (etape 0, remplacee par la generation a l'etape 2) --- */
-#define SALLE_DEMI        10.0f   /* demi-cote de la salle (m) */
-#define SALLE_HAUT        2.8f    /* hauteur sous plafond */
+/* --- lampe torche --- */
+#define LAMPE_BATTERIE    420.0f  /* secondes d'autonomie (rechargee a chaque niveau) */
+#define LAMPE_FAIBLE      0.18f   /* sous cette part, elle clignote */
+#define LAMPE_ANGLE       24.0f   /* demi-angle du faisceau (degres) */
+#define LAMPE_PUISSANCE   1.0f
+#define LAMPE_PORTEE_FOG  0.11f   /* brouillard noir de la passe de lampe : plus grand = portee plus courte */
+#define LAMPE_RETARD_K    12.0f   /* le faisceau suit le regard avec un leger retard (1/s) */
+#define LAMPE_MONSTRE_D   9.0f    /* le monstre plus pres que ca fait gresiller la lampe */
+
+/* --- monde --- */
+#define HAUT_PLAFOND      2.8f    /* hauteur sous plafond */
+#define NEON_PAS_CASES    3       /* un neon automatique toutes les 3 cases (x et z) */
+#define LM_DENS           8       /* texels de lightmap par metre */
+#define LM_ATLAS          1024    /* cote de l'atlas des lightmaps */
+#define NEON_I            2.6f    /* puissance d'un neon (eclairement direct) */
+#define NEON_PORTEE       7.5f    /* au-dela, un neon n'eclaire plus (precalcul) */
+#define REBOND_K          0.30f   /* lumiere renvoyee par les murs jaunes (rebond approche) */
+#define AMBIANCE_MIN      0.025f  /* le noir n'est jamais tout a fait noir */
+#define FOG_DENSITE       0.19f   /* brouillard du niveau 1 (les suivants sont plus denses) */
+#define CARTE_GEN_MIN     36      /* niveaux generes : cote de la carte au niveau 2 */
+
+/* --- le Rodeur (monstre aveugle, chasse au bruit) --- */
+#define RODEUR_ERRE_V     1.05f   /* vitesse quand il erre */
+#define RODEUR_ENQUETE_V  2.1f    /* quand il va voir un bruit */
+#define RODEUR_CHASSE_V   3.85f   /* quand il te poursuit : la course le distance... tant que l'endurance tient */
+#define RODEUR_OUIE       15.0f   /* portee d'ecoute pour un bruit de 1 (course) ; derriere un mur : moitie */
+#define RODEUR_PRISE      0.75f   /* a cette distance, il t'attrape */
+#define RODEUR_OUBLI      3.5f    /* sans t'entendre pendant ce temps, il abandonne la poursuite */
+#define RODEUR_ERRE_RMIN  6.0f    /* il erre dans un anneau autour du joueur : se balade "a cote" */
+#define RODEUR_ERRE_RMAX  17.0f
+#define RODEUR_DEPART_MIN 22.0f   /* il apparait au moins a cette distance du depart */
+#define RODEUR_NIVEAU_K   0.08f   /* +8 % de vitesse par niveau */
+
+/* --- peur, screamers --- */
+#define SCREAMER_MORT_T   1.7f    /* duree du screamer de mort */
+#define APPARITION_T      0.55f   /* duree d'une apparition dans le faisceau */
+#define APPARITION_MIN    95.0f   /* au moins tant de secondes entre deux apparitions */
+#define APPARITION_MAX    200.0f
+#define FAUX_BRUIT_MIN    40.0f   /* bruits lourds derriere toi (faux departs) */
+#define FAUX_BRUIT_MAX    90.0f
+#define COEUR_DIST        13.0f   /* battements de coeur quand le monstre est plus pres que ca */
+
+/* --- objectif --- */
+#define FUSIBLES_N        3       /* fusibles a trouver par niveau */
+#define RAMASSER_DIST     1.5f
+#define ASC_PORTE_T       1.3f    /* duree d'ouverture / fermeture des portes d'ascenseur */
 
 /* --- son --- */
-#define BOURDON_VOL_MENU  0.22f   /* bourdonnement des neons dans les menus */
-#define BOURDON_VOL_JEU   0.38f   /* ... en jeu */
-#define PAS_VOL           0.55f
+#define BOURDON_VOL_MENU  0.20f   /* bourdonnement des neons dans les menus */
+#define BOURDON_VOL_JEU   0.30f   /* ... en jeu */
+#define PAS_VOL           0.50f
 
 /* --- entrees (repris de VELOCITY) --- */
 #define WHEEL_QUIET        0.15    /* molette : repos (s) qui separe deux gestes ; une rafale = un seul changement */

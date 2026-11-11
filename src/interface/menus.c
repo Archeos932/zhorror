@@ -37,7 +37,7 @@ static void draw_title(float t) {
     button(cx, y, "ENTRER", ACT_JOUER); y += 64;
     button(cx, y, fullscreen ? "FENETRE" : "PLEIN ECRAN", ACT_PLEIN_ECRAN); y += 64;
     button(cx, y, "QUITTER", ACT_QUITTER);
-    text(0, 24, winH - 16.0f, "etape 0 : salle de test", 0.45f, 0.43f, 0.38f, 0.8f);
+    text(0, 24, winH - 16.0f, "casque conseille - accroupi (Ctrl), il n'entend que le bruit", 0.45f, 0.43f, 0.38f, 0.8f);
 }
 
 static void draw_pause(void) {
