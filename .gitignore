@@ -19,3 +19,6 @@ Bourdonnement-Linux/
 Bourdonnement-Linux.tar.gz
 # copies de travail des agents
 .claude/worktrees/
+# worker (Cloudflare)
+worker/.wrangler/
+worker/node_modules/

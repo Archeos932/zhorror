@@ -4,7 +4,7 @@
    Windows : WinHTTP ; macOS / Linux : mac_ws_* (couche plateforme). Tout le jeu passe par ce WebSocket (relais) :
    un peu plus lent qu'une connexion directe, mais ca passe derriere n'importe quelle box, 4G ou reseau d'ecole. */
 
-#define SERVEUR_DEFAUT "bourdonnement-salons.velocity-void.workers.dev"   /* serveur= dans bourdonnement.ini le remplace */
+#define SERVEUR_DEFAUT "bourdonnement-salons.bourdonnementttt.workers.dev"   /* serveur= dans bourdonnement.ini le remplace */
 #define WS_Q    96
 #define WS_LIGNE 2048
 enum { WS_OFF, WS_CONNEXION, WS_ON, WS_ECHEC };

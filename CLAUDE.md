@@ -70,7 +70,7 @@ Le propriétaire est francophone : réponses, commentaires et docs **en françai
   - serveur de salons `worker/` (Cloudflare Worker + Durable Object hibernable) : logique pure dans
     `worker/src/salons.js`, testée par `node worker/test.js` ; serveur local `node worker/dev-server.js 8787` ;
     déploiement **par le propriétaire** : `cd worker && npx wrangler login && npx wrangler deploy` →
-    `bourdonnement-salons.velocity-void.workers.dev` (`SERVEUR_DEFAUT`, `serveur=` dans bourdonnement.ini) ;
+    `bourdonnement-salons.bourdonnementttt.workers.dev` (`SERVEUR_DEFAUT`, `serveur=` dans bourdonnement.ini) ;
   - jeu : `src/reseau/ws.c` (WebSocket, fils), `src/reseau/joueurs.c` (`JP[]`, `NetJ`, cibles des monstres
     `cib[]`), `src/reseau/reseau.c` (salons, `PaquetJ` client→hôte et `Snap` hôte→tous à 15/s ; événements déduits
     des différences d'instantanés ; **`RESEAU_VER`++ à chaque changement de paquet**) ;
