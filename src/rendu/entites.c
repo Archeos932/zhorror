@@ -335,7 +335,8 @@ static void dessiner_entites(float t) {
     fog_scene();
     dessiner_sol(t);
     dessiner_decals(t);
-    for (int k = 0; k < MAXP; k++) if (netMode != NET_OFF && k != monSlot && JP[k].actif) dessiner_joueur(k, t);
+    for (int k = 0; k < MAXP; k++)                        /* les autres (pas ceux qui sont caches) */
+        if (netMode != NET_OFF && k != monSlot && JP[k].actif && !(JP[k].st.flags & JF_CACHE)) dessiner_joueur(k, t);
     for (int i = 0; i < nmon; i++) {                      /* les monstres */
         Monstre *m = &mon[i];
         if (!m->actif) continue;

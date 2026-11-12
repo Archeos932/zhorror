@@ -93,7 +93,11 @@ static void draw_hud(float t) {
     if (e < 0.999f) rect(winW * 0.5f - 60, winH - 30.0f, 120 * e, 3, P.essouffle ? 0.8f : 0.85f, P.essouffle ? 0.2f : 0.8f,
                          P.essouffle ? 0.15f : 0.6f, 0.5f);
     if (P.piegeT > 0) text_c(1, winW * 0.5f, winH * 0.5f + 70, "[E]  [E]  [E]", 0.9f, 0.2f, 0.15f, fmodf(t, 0.3f) < 0.15f ? 1.0f : 0.6f);
+    else if (P.cache == 2) text_c(0, winW * 0.5f, winH - 120.0f, "[E]  sortir de l'armoire", 0.6f, 0.56f, 0.48f, 0.7f);
+    else if (P.cache == 1) text_c(0, winW * 0.5f, winH - 120.0f, "cache sous le lit - ne fais pas de bruit", 0.6f, 0.56f, 0.48f, 0.7f);
     else if (objet_vise() >= 0) text_c(0, winW * 0.5f, winH * 0.5f + 60, "[E]  ramasser le fusible", 0.85f, 0.82f, 0.7f, 0.8f);
+    else if (meuble_vise_de(P.pos, P.yaw, MB_CASSETTE) >= 0) text_c(0, winW * 0.5f, winH * 0.5f + 60, "[E]  prendre la cassette", 0.85f, 0.82f, 0.7f, 0.8f);
+    else if (armoire_visee() >= 0) text_c(0, winW * 0.5f, winH * 0.5f + 60, "[E]  se cacher dans l'armoire", 0.85f, 0.82f, 0.7f, 0.8f);
     if (msgT > 0) {
         int radioMsg = msgTexte[0] == 'R';
         text_c(0, winW * 0.5f, winH - 90.0f, msgTexte, radioMsg ? 0.6f : 0.92f, radioMsg ? 0.85f : 0.88f, radioMsg ? 0.6f : 0.72f, fminf(1, msgT));
@@ -168,7 +172,7 @@ static void render(float alpha, float frameDt) {
     while (dy > PI) dy -= 2 * PI;
     while (dy < -PI) dy += 2 * PI;
     monde_draw(t, appState == APP_GAME ? lampeK : 0, dy, P.lampePitch - P.pitch);
-    if (appState == APP_GAME) dessiner_entites(t);
+    if (appState == APP_GAME) { dessiner_entites(t); dessiner_meubles(t); }
 
     int plan = -1;                                        /* screamer : coupes toutes les 90 ms */
     if (screamT >= 0) plan = screamT < 0.06f ? 9 : (int)(hash32((unsigned)(screamT / 0.09f) * 2654435761u) % 4);
@@ -192,6 +196,17 @@ static void render(float alpha, float frameDt) {
     }
 
     begin_2d();
+    if (appState == APP_GAME && P.cache == 2 && !P.dead) {   /* dans l'armoire : tout est noir, sauf la fente */
+        float fw = winW * 0.07f, cx = winW * 0.5f;
+        rect(0, 0, cx - fw * 0.5f, (float)winH, 0.01f, 0.008f, 0.005f, 0.985f);
+        rect(cx + fw * 0.5f, 0, winW - cx - fw * 0.5f, (float)winH, 0.01f, 0.008f, 0.005f, 0.985f);
+        rect(cx - fw * 0.5f - 6, 0, 6, (float)winH, 0.12f, 0.07f, 0.04f, 0.9f);
+        rect(cx + fw * 0.5f, 0, 6, (float)winH, 0.12f, 0.07f, 0.04f, 0.9f);
+    } else if (appState == APP_GAME && P.cache == 1 && !P.dead) {   /* sous le lit : le sommier au-dessus du nez */
+        rect_vgrad(0, 0, (float)winW, winH * 0.42f, 0.02f, 0.015f, 0.01f, 0.95f, 0.75f);
+        for (int k = 0; k < 6; k++) rect(0, winH * (0.03f + k * 0.065f), (float)winW, 7, 0.16f, 0.1f, 0.05f, 0.85f);   /* lattes */
+        rect_vgrad(0, winH * 0.42f, (float)winW, winH * 0.1f, 0.02f, 0.015f, 0.01f, 0.75f, 0);
+    }
     float pouls = coeurPouls * clampf((bpm - 80) / 100.0f, 0, 1);
     vignette(0.6f + 0.3f * tension + 0.25f * pouls);
     if (appState == APP_MENU) { vhs((float)nowT, 0.1f); draw_title(t); }

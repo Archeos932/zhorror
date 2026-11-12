@@ -41,6 +41,11 @@ static int ndecals;
 /* Sol, plafond et murs a partir de la grille. Ordre des sommets : o, o+u, o+u+v, o+v ; u x v = normale (face avant).
    En plus des murs : plinthes et corniches, linteaux au-dessus des passages etroits, cloisons basses, dalles de
    plafond arrachees (un trou noir), et la liste des prises / grilles. */
+/* materiaux de chaque zone : sol, murs, plafond */
+static const int matSol[ZONE_N] = { MAT_MOQUETTE, MAT_MOQ_CHAMBRE, MAT_CARRELAGE, MAT_MOQ_CHAMBRE, MAT_LINO, MAT_BETON, MAT_BETON };
+static const int matMur[ZONE_N] = { MAT_PAPIER, MAT_FLEURI, MAT_FAIENCE, MAT_ENFANT, MAT_FAIENCE, MAT_BETON, MAT_BETON };
+static const int matPlaf[ZONE_N] = { MAT_PLAFOND, MAT_PLAFOND, MAT_PLAFOND, MAT_PLAFOND, MAT_PLAFOND, MAT_BETON, MAT_BETON };
+
 static void construire_faces(void) {
     nfaces = 0; ndecals = 0;
     for (int z = 0; z < carteH; z++)
@@ -52,16 +57,17 @@ static void construire_faces(void) {
                 add_face(v3((float)x, HAUT_PLAFOND, (float)z), v3(1, 0, 0), v3(0, 0, 1), MAT_PLAFOND);
                 continue;
             }
-            add_face(v3((float)x, 0, (float)z), v3(0, 0, 1), v3(1, 0, 0), MAT_MOQUETTE);
+            int zn = zone[z][x];
+            add_face(v3((float)x, 0, (float)z), v3(0, 0, 1), v3(1, 0, 0), matSol[zn]);
             int neonIci = 0;
             for (int i = 0; i < nneons; i++) if ((int)neons[i].x == x && (int)neons[i].z == z) neonIci = 1;
             int estAsc = asc.actif && x == asc.gx && z == asc.gz;
-            if (!neonIci && !estAsc && h % 100 < 4) {        /* dalle arrachee : un trou dans le noir */
+            if (!neonIci && !estAsc && zn == ZONE_BUREAU && h % 100 < 4) {   /* dalle arrachee : un trou dans le noir */
                 for (int k = 0; k < 4; k++)
                     face_v(v3(x + 0.5f + cotes[k][0] * 0.5f, 0, z + 0.5f + cotes[k][1] * 0.5f), v3((float)-cotes[k][0], 0, (float)-cotes[k][1]),
                            1, HAUT_PLAFOND, HAUT_PLAFOND + TROU_H, MAT_CORNICHE);
                 add_face(v3((float)x, HAUT_PLAFOND + TROU_H, (float)z), v3(1, 0, 0), v3(0, 0, 1), MAT_PLAFOND);
-            } else add_face(v3((float)x, HAUT_PLAFOND, (float)z), v3(1, 0, 0), v3(0, 0, 1), MAT_PLAFOND);
+            } else add_face(v3((float)x, HAUT_PLAFOND, (float)z), v3(1, 0, 0), v3(0, 0, 1), matPlaf[zn]);
             for (int k = 0; k < 4; k++) {
                 int nx = x + cotes[k][0], nz = z + cotes[k][1];
                 int plein = cell_opaque(nx, nz), muret = cell_muret(nx, nz);
@@ -70,11 +76,13 @@ static void construire_faces(void) {
                 V3 c = v3(x + 0.5f + cotes[k][0] * 0.5f, 0, z + 0.5f + cotes[k][1] * 0.5f);
                 V3 u = vcross(up3(), n);
                 float hm = plein ? HAUT_PLAFOND : MURET_H;
-                face_v(c, n, 1, 0, hm, plein ? MAT_PAPIER : MAT_CLOISON);
-                V3 cp = vadd(c, vmul(n, 0.015f));         /* plinthe : face avant et dessus */
-                face_v(cp, n, 1, 0, 0.11f, MAT_PLINTHE);
-                add_face(v3(c.x - u.x * 0.5f, 0.11f, c.z - u.z * 0.5f), vmul(n, 0.015f), u, MAT_PLINTHE);
-                if (plein) {                              /* corniche : face avant et dessous */
+                face_v(c, n, 1, 0, hm, plein ? matMur[zn] : MAT_CLOISON);
+                if (matMur[zn] != MAT_FAIENCE) {          /* plinthe : face avant et dessus (pas sur la faience) */
+                    V3 cp = vadd(c, vmul(n, 0.015f));
+                    face_v(cp, n, 1, 0, 0.11f, MAT_PLINTHE);
+                    add_face(v3(c.x - u.x * 0.5f, 0.11f, c.z - u.z * 0.5f), vmul(n, 0.015f), u, MAT_PLINTHE);
+                }
+                if (plein && matPlaf[zn] == MAT_PLAFOND) {   /* corniche : face avant et dessous */
                     V3 cc = vadd(c, vmul(n, 0.022f));
                     face_v(cc, n, 1, HAUT_PLAFOND - 0.09f, HAUT_PLAFOND, MAT_CORNICHE);
                     add_face(v3(c.x - u.x * 0.5f, HAUT_PLAFOND - 0.09f, c.z - u.z * 0.5f), u, vmul(n, 0.022f), MAT_CORNICHE);
@@ -129,13 +137,23 @@ static float occlusion(const Face *f, V3 p) {
 
 /* lumiere recue en p (normale n) des neons de la liste ; seul >= 0 : uniquement ce neon (couche dynamique) */
 static void lum_point(V3 p, V3 n, const short *cand, int nc, int seul, float out[3]) {
-    float direct = 0, rebond = 0;
+    float direct = 0, rebond = 0, chaud = 0;              /* chaud : lampes de chevet, lanternes (lumiere orangee) */
     V3 po = vadd(p, vmul(n, 0.04f));
     for (int c = 0; c < nc; c++) {
         int i = cand[c];
         const Neon *ne = &neons[i];
         if (seul >= 0 ? i != seul : (ne->etat != NEON_OK)) continue;
         float dx = ne->x - p.x, dz = ne->z - p.z, dxz2 = dx * dx + dz * dz;
+        if (ne->lampe) {                                  /* point lumineux a sa hauteur, dans toutes les directions */
+            if (dxz2 > LAMPE_MEUBLE_PORTEE * LAMPE_MEUBLE_PORTEE || !visible_xz(po.x, po.z, ne->x, ne->z)) continue;
+            V3 L = vsub(v3(ne->x, ne->y, ne->z), p);
+            float d2 = vdot(L, L), d = sqrtf(d2);
+            if (d < 1e-3f) continue;
+            float cs = vdot(n, L) / d, fl = 1 - sqrtf(dxz2) / LAMPE_MEUBLE_PORTEE;
+            if (cs > 0) chaud += LAMPE_MEUBLE_I * cs / (d2 * 0.9f + 0.2f) * fl;
+            chaud += LAMPE_MEUBLE_I * 0.12f / (d2 + 1) * fl;   /* un peu de rebond */
+            continue;
+        }
         if (dxz2 > NEON_PORTEE * NEON_PORTEE) continue;
         if (!visible_xz(po.x, po.z, ne->x, ne->z)) continue;
         float fade = 1 - sqrtf(dxz2) / NEON_PORTEE;
@@ -152,9 +170,9 @@ static void lum_point(V3 p, V3 n, const short *cand, int nc, int seul, float out
     }
     float rk = REBOND_K * (n.y < -0.5f ? 1.0f : n.y > 0.5f ? 0.35f : 0.6f);
     float amb = seul >= 0 ? 0 : AMBIANCE_MIN;
-    out[0] = direct * 1.00f + rebond * rk * 0.95f + amb;
-    out[1] = direct * 0.97f + rebond * rk * 0.86f + amb * 0.95f;
-    out[2] = direct * 0.84f + rebond * rk * 0.55f + amb * 0.8f;
+    out[0] = direct * 1.00f + rebond * rk * 0.95f + amb + chaud * 1.0f;
+    out[1] = direct * 0.97f + rebond * rk * 0.86f + amb * 0.95f + chaud * 0.68f;
+    out[2] = direct * 0.84f + rebond * rk * 0.55f + amb * 0.8f + chaud * 0.36f;
 }
 
 /* neons assez proches de la face (centre c) : candidats pour tous ses texels */

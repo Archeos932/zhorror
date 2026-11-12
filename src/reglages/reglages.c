@@ -13,6 +13,9 @@
 #define RAYON_JOUEUR      0.3f    /* rayon de collision (plan XZ) */
 #define OEIL_DEBOUT       1.65f   /* hauteur des yeux */
 #define OEIL_ACCROUPI     1.0f
+#define OEIL_SOUS_LIT     0.12f   /* sous un lit, a plat ventre */
+#define ARMOIRE_REGARD    0.55f   /* dans une armoire : on tourne la tete de +/- tant (radians) */
+#define BRUIT_ARMOIRE     0.35f   /* ouvrir / fermer une armoire */
 #define OEIL_K            8.0f    /* vitesse de passage debout <-> accroupi (1/s) */
 #define PENCHE_DIST       0.38f   /* se pencher : decalage lateral de la tete (m) */
 #define PENCHE_ROULIS     11.0f   /* ... et inclinaison (degres) */
@@ -55,6 +58,8 @@
 #define LM_ATLAS          1024    /* cote de l'atlas des lightmaps */
 #define NEON_I            2.3f    /* puissance d'un neon (eclairement direct) */
 #define NEON_PORTEE       7.5f    /* au-dela, un neon n'eclaire plus (precalcul) */
+#define LAMPE_MEUBLE_I    0.95f   /* lampe de chevet, veilleuse, lanterne : lumiere chaude */
+#define LAMPE_MEUBLE_PORTEE 4.5f
 #define REBOND_K          0.30f   /* lumiere renvoyee par les murs jaunes (rebond approche) */
 #define AMBIANCE_MIN      0.012f  /* le noir n'est jamais tout a fait noir */
 #define FOG_DENSITE       0.22f   /* brouillard du niveau 1 (les suivants sont plus denses) */

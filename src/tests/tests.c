@@ -311,6 +311,7 @@ static int run_tests(const char *path) {
         int libres, n = carte_atteignables(&libres), linteaux = 0, plinthes = 0, cloisons = 0;
         check("niveau 1 : toutes les cases libres atteignables", (float)(libres - n), 0, 0);
         check("niveau 1 : 3 fusibles, 1 machoire, l'ascenseur", (float)(nfus * 100 + npieges * 10 + asc.actif), 311, 311);
+        check("niveau 1 : une chambre et une salle de bain", (float)(npieces == 2 && pieces[0].zone == ZONE_CHAMBRE && pieces[1].zone == ZONE_SDB), 1, 1);
         for (int i = 0; i < nfaces; i++) {
             if (faces[i].mat == MAT_PLINTHE) plinthes++;
             if (faces[i].mat == MAT_CLOISON) cloisons++;
@@ -351,6 +352,128 @@ static int run_tests(const char *path) {
         check("multi : le client voit le fusible pris", (float)(fusPris - avant), 1, 1);
         check("multi : le client voit le monstre", (float)nmon, 1, 1);
         netMode = NET_OFF; monSlot = 0; memset(JP, 0, sizeof JP); memset(mortHote, 0, sizeof mortHote);
+    }
+
+    /* pieces a theme, meubles, cachettes (la vitrine : un couloir et les six pieces) */
+    {
+        reset_game(); cartonActif = 0; monstres_reset();
+        charger_vitrine(); monde_reconstruire(); player_reset(); nfus = 0;
+        check("pieces : les six pieces sont creusees", (float)npieces, 6, 6);
+        int portesOk = 1;
+        for (int i = 0; i < npieces; i++) {               /* une seule ouverture dans la bordure */
+            const Piece *p = &pieces[i]; int ouv = 0;
+            for (int z = p->z0 - 1; z <= p->z0 + p->ih; z++)
+                for (int x = p->x0 - 1; x <= p->x0 + p->iw; x++) {
+                    int bord = x == p->x0 - 1 || x == p->x0 + p->iw || z == p->z0 - 1 || z == p->z0 + p->ih;
+                    if (bord && !cell_mur(x, z)) ouv++;
+                }
+            if (ouv != 1) portesOk = 0;
+        }
+        check("pieces : chacune a une seule porte", (float)portesOk, 1, 1);
+        int libres, n = carte_atteignables(&libres);
+        check("pieces : tout reste atteignable", (float)(libres - n), 0, 0);
+        int fleuri = 0, carrelage = 0;
+        for (int i = 0; i < nfaces; i++) { fleuri += faces[i].mat == MAT_FLEURI; carrelage += faces[i].mat == MAT_CARRELAGE; }
+        check("pieces : papier fleuri et carrelage", (float)(fleuri > 0 && carrelage > 0), 1, 1);
+        int lit = -1, arm = -1, lampe = -1, cas = -1, man = -1;
+        for (int i = 0; i < nmeubles; i++) {
+            if (meubles[i].type == MB_LIT && lit < 0) lit = i;
+            if (meubles[i].type == MB_ARMOIRE && arm < 0) arm = i;
+            if (meubles[i].type == MB_LAMPE && lampe < 0) lampe = i;
+            if (meubles[i].type == MB_CASSETTE && cas < 0) cas = i;
+            if (meubles[i].type == MB_MANNEQUIN && man < 0) man = i;
+        }
+        check("meubles : lit, armoire, lampe, cassette, mannequin", (float)(lit >= 0 && arm >= 0 && lampe >= 0 && cas >= 0 && man >= 0), 1, 1);
+        {
+            short cand[256]; float c[3], c2[3];
+            V3 pl = v3(meubles[lampe].x, 0.6f, meubles[lampe].z);
+            int nc = candidats(pl, cand, 256);
+            lum_point(v3(pl.x, 0.01f, pl.z + 0.0f), v3(0, 1, 0), cand, nc, -1, c);
+            check("lumiere : la lampe de chevet eclaire le sol (chaud)", c[0] - c[2], 0.15f, 9);
+            meubles[lampe].lumiere >= 0 ? (void)0 : (void)0;
+            neons[meubles[lampe].lumiere].etat = NEON_MORT;   /* eteinte : il fait noir */
+            lum_point(v3(pl.x, 0.01f, pl.z), v3(0, 1, 0), cand, nc, -1, c2);
+            check("lumiere : lampe eteinte, beaucoup moins", c2[0], 0, c[0] * 0.5f);
+            neons[meubles[lampe].lumiere].etat = NEON_OK;
+        }
+        /* le lit bloque debout, on rampe dessous accroupi */
+        {
+            const Meuble *m = &meubles[lit];
+            V3 av = view_dir(m->yaw, 0);                  /* on arrive par le pied du lit */
+            test_place(m->x + av.x * 1.6f, m->z + av.z * 1.6f, m->yaw + PI);
+            test_run(120 * 2, A_AVANCER, -1);
+            check("meubles : debout, le lit arrete (m du centre)", dist_xz(P.pos, v3(m->x, 0, m->z)), 1.0f, 1.4f);
+            test_run(120 * 3, A_AVANCER, A_ACCROUPI);
+            check("cachette : accroupi, on passe sous le lit", (float)P.cache, 1, 1);
+            check("cachette : sous le lit, la lampe s'eteint", (float)P.lampe, 0, 0);
+            test_run(60, -1, -1);
+            check("cachette : sous le lit, on reste a plat", (float)P.accroupi, 1, 1);
+            test_monstre(MON_RODEUR, P.pos.x + 0.2f, P.pos.z);   /* il est juste la... */
+            mon_etat(&mon[0], E_CHASSE, 0); mon[0].vitK = 0;
+            test_run(120 * 2, -1, -1);
+            check("cachette : sous le lit, il ne t'attrape pas", (float)P.dead, 0, 0);
+            monstres_reset();
+        }
+        /* l'armoire : E pour entrer, E pour sortir */
+        {
+            const Meuble *m = &meubles[arm];
+            V3 av = view_dir(m->yaw, 0);
+            test_place(m->x + av.x * 0.95f, m->z + av.z * 0.95f, m->yaw + PI);
+            botPress[A_UTILISER] = 1; test_run(1, -1, -1);
+            check("armoire : E -> cache dedans", (float)P.cache, 2, 2);
+            test_run(120, A_AVANCER, -1);
+            check("armoire : dedans, on ne bouge pas", dist_xz(P.pos, v3(m->x, 0, m->z)), 0, 0.01f);
+            test_monstre(MON_RODEUR, m->x + av.x * 0.5f, m->z + av.z * 0.5f);
+            mon_etat(&mon[0], E_CHASSE, 0); mon[0].vitK = 0;
+            test_run(120, -1, -1);
+            check("armoire : il ne t'y trouve pas", (float)P.dead, 0, 0);
+            monstres_reset();
+            botPress[A_UTILISER] = 1; test_run(2, -1, -1);
+            check("armoire : E -> on ressort devant", (float)(P.cache == 0 && dist_xz(P.pos, v3(m->x, 0, m->z)) > 0.6f), 1, 1);
+        }
+        /* les mannequins : ils ne bougent pas sous les yeux */
+        {
+            Meuble *m = &meubles[man];
+            V3 q = v3(m->x, 0, m->z);
+            int ip = m->piece;
+            pieces[ip].vue = 1;
+            V3 porte = v3(pieces[ip].porteX + 0.5f, 0, pieces[ip].porteZ + 0.5f);
+            test_place(porte.x, porte.z, atan2f(q.x - porte.x, -(q.z - porte.z)));   /* on le fixe depuis la porte */
+            int e0 = m->etat; float x0 = m->x;
+            P.lampe = 1;
+            test_run(120 * 6, -1, -1);
+            check("mannequins : regardes, ils ne bougent pas", (float)(m->etat == e0 && m->x == x0), 1, 1);
+            P.yaw += PI;                                  /* on se retourne... */
+            int bouge = 0;
+            for (int i = 0; i < 120 * 15 && !bouge; i++) { test_run(1, -1, -1); P.yaw = P.lampeYaw = atan2f(q.x - porte.x, -(q.z - porte.z)) + PI; bouge = m->etat != e0; }
+            check("mannequins : dos tourne, ils bougent", (float)bouge, 1, 1);
+        }
+        /* la cassette de Noe */
+        {
+            const Meuble *m = &meubles[cas];
+            test_place(m->x, m->z + 0.6f, 0);
+            P.yaw = atan2f(m->x - P.pos.x, -(m->z - P.pos.z));
+            botPress[A_UTILISER] = 1; test_run(1, -1, -1);
+            check("cassette : ramassee", (float)meubles[cas].etat, 1, 1);
+            check("cassette : on la regarde (texte)", (float)cartonActif, 1, 1);
+            cartonActif = 0;
+        }
+        /* en ligne : l'etat des meubles voyage dans l'instantane */
+        {
+            netMode = NET_HOTE;
+            Snap s; snap_faire(&s);
+            int tv = -1; for (int i = 0; i < nmeubles; i++) if (meubles[i].type == MB_TELE) tv = i;
+            int avant = meubles[tv].etat;
+            meubles[tv].etat = 9; meubles[cas].etat = 0;   /* le client a un autre etat... */
+            netMode = NET_CLIENT; monSlot = 1;
+            snap_appliquer(&s);
+            check("multi : la tele reprend l'etat de l'hote", (float)meubles[tv].etat, (float)avant, (float)avant);
+            check("multi : la cassette prise chez l'hote", (float)meubles[cas].etat, 1, 1);
+            netMode = NET_OFF; monSlot = 0; cartonActif = 0; msgT = 0;
+        }
+        /* les niveaux generes ont leurs pieces */
+        carteTest = 0; niveau_charger_ex(3, 0); carteTest = 1;
+        check("pieces : niveau 3 genere, 2 a 4 pieces dont le campement", (float)npieces, 3, 4);
     }
 
     /* micro : chuchoter passe, crier attire */

@@ -97,6 +97,73 @@ static const char *const texteRadio[5][3] = {
 
 #define NTEXTES_RADIO 5
 
+static const char *const texteCassette0[] = {
+    "(l'image tremble, une moquette jaune, la respiration de Noe)",
+    "",
+    "\xAB Jour... deux, je crois. Y a pas de nuit ici.",
+    "  Les lumieres s'eteignent jamais. Enfin, si. Parfois.",
+    "",
+    "  Et quand elles s'eteignent...",
+    "",
+    "  (il tourne la camera vers le fond du couloir : quelque chose, tres grand)",
+    "",
+    "  ... faut pas regarder ailleurs. \xBB",
+    NULL };
+
+static const char *const texteCassette1[] = {
+    "(un bureau, une radio posee sur une chaise)",
+    "",
+    "\xAB J'ai trouve une radio. Y a une femme dessus. Helene.",
+    "  Elle est gentille. Elle m'a dit ou aller.",
+    "",
+    "  (il chuchote)",
+    "",
+    "  ... Mais elle connait mon prenom.",
+    "  Je lui ai jamais dit mon prenom. \xBB",
+    NULL };
+
+static const char *const texteCassette2[] = {
+    "(filme depuis l'interieur d'une armoire, par la fente)",
+    "",
+    "(quelque chose respire contre la porte)",
+    "",
+    "\xAB ... elle m'appelle.",
+    "  Avec la voix de maman.",
+    "",
+    "  Me cachez pas sous le lit. Elle regarde toujours sous le lit. \xBB",
+    NULL };
+
+static const char *const texteCassette3[] = {
+    "(une echelle de service, de l'eau qui goutte)",
+    "",
+    "\xAB Si la radio vous dit de descendre, montez.",
+    "  Si elle vous dit de rester ensemble...",
+    "",
+    "  (long silence)",
+    "",
+    "  ... elle a raison, pour une fois.",
+    "  Je vous attends en haut. La ou tout a commence. \xBB",
+    NULL };
+
+static const char *const texteCassette4[] = {
+    "(Noe, maigre, barbu, il a vieilli de dix ans)",
+    "",
+    "\xAB Je l'ai depuis le debut. La cle de service.",
+    "  Mais elle n'ouvre que de l'exterieur.",
+    "",
+    "  Et de dedans... il faut que quelqu'un tienne la porte.",
+    "",
+    "  Je suis desole. \xBB",
+    NULL };
+
+static const char *const *const texteCassettes[5] = { texteCassette0, texteCassette1, texteCassette2, texteCassette3, texteCassette4 };
+
+static const char *const titreCassettes[5] = { "CASSETTE DE NOE - 1", "CASSETTE DE NOE - 2", "CASSETTE DE NOE - 3", "CASSETTE DE NOE - 4", "CASSETTE DE NOE - 5" };
+
+static const char *const texteCassetteCourt[5] = { "CASSETTE 1 - Noe : \xAB Quand les lumieres s'eteignent... faut pas regarder ailleurs. \xBB", "CASSETTE 2 - Noe : \xAB La femme de la radio connait mon prenom. Je lui ai jamais dit. \xBB", "CASSETTE 3 - Noe, cache dans une armoire : \xAB Elle m'appelle avec la voix de maman. \xBB", "CASSETTE 4 - Noe : \xAB Si la radio vous dit de descendre, montez. Je vous attends en haut. \xBB", "CASSETTE 5 - Noe : \xAB La cle n'ouvre que de dehors. Quelqu'un devra tenir la porte. \xBB" };
+
+#define NTEXTES_CASSETTES 5
+
 static const char *const texteMort[3] = { "IL T'A ENTENDU.", "TU L'AS LAISS\xC9 DANS LE NOIR.", "ELLE A VU TA LUMI\xC8RE." };
 
 static const char *const texteConseil[3] = { "Il n'entend que le bruit : accroupis-toi (Ctrl), \xE9vite l'eau et le verre.", "Il n'avance que dans le noir : garde ta lampe ou un n\xE9on sur lui.", "Elle fonce sur la lumi\xE8re : \xE9teins ta lampe (F) et ne bouge plus." };

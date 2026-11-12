@@ -3,9 +3,11 @@
    Morceau de main.c : inclus dans l'ordre, ne se compile pas seul (voir main.c).
    Bruit de valeur periodique : chaque texture se repete sans couture. Mipmaps faits main (repris de VELOCITY). */
 
-enum { MAT_MOQUETTE, MAT_PAPIER, MAT_PLAFOND, MAT_PLINTHE, MAT_CORNICHE, MAT_CLOISON, MAT_COUNT };
+enum { MAT_MOQUETTE, MAT_PAPIER, MAT_PLAFOND, MAT_PLINTHE, MAT_CORNICHE, MAT_CLOISON,
+       MAT_MOQ_CHAMBRE, MAT_FLEURI, MAT_CARRELAGE, MAT_FAIENCE, MAT_ENFANT, MAT_LINO, MAT_BETON, MAT_COUNT };
 static GLuint texMat[MAT_COUNT], texNeon, texLampe, texMetal;
-static const float matEchelle[MAT_COUNT] = { 0.5f, 0.5f, 1.0f / 2.4f, 1.0f, 1.0f, 0.5f };   /* repetitions par metre */
+static const float matEchelle[MAT_COUNT] = { 0.5f, 0.5f, 1.0f / 2.4f, 1.0f, 1.0f, 0.5f,
+                                             0.5f, 0.5f, 1.0f / 1.2f, 1.0f / 1.2f, 0.5f, 1.0f / 1.6f, 0.25f };   /* repetitions par metre */
 
 static float tex_h(int x, int y, unsigned s) {
     return (float)(hash32((unsigned)x * 73856093u ^ (unsigned)y * 19349663u ^ s) & 0xffff) / 65535.0f;
@@ -175,6 +177,103 @@ static void make_textures(void) {
             px_set(img, N, x, y, 0.52f * k, 0.53f * k, 0.55f * k);
         }
     upload_rgb_mip(&texMetal, img, N);
+    /* --- pieces a theme --- */
+    /* moquette de chambre : bordeaux, motif de medaillons, taches */
+    for (int y = 0; y < N; y++)
+        for (int x = 0; x < N; x++) {
+            float u = (float)x / N, v = (float)y / N;
+            float k = 0.85f + 0.2f * tex_h(x, y, 131);
+            float du = fmodf(u * 4, 1.0f) - 0.5f, dv = fmodf(v * 4, 1.0f) - 0.5f, r = sqrtf(du * du + dv * dv);
+            float motif = (r > 0.28f && r < 0.34f) || (fabsf(du) < 0.03f && fabsf(dv) < 0.2f) ? 1.0f : 0.0f;
+            k *= 0.85f + 0.25f * fbm(u, v, 4, 3, 137);
+            float r0 = 0.36f, g0 = 0.08f, b0 = 0.09f;
+            if (motif > 0) { r0 = 0.55f; g0 = 0.38f; b0 = 0.16f; }
+            if (fbm(u, v, 3, 3, 139) > 0.62f) k *= 0.65f;
+            px_set(img, N, x, y, r0 * k, g0 * k, b0 * k);
+        }
+    upload_rgb_mip(&texMat[MAT_MOQ_CHAMBRE], img, N);
+
+    /* papier peint fleuri, delave, decolle par endroits */
+    for (int y = 0; y < N; y++)
+        for (int x = 0; x < N; x++) {
+            float u = (float)x / N, v = (float)y / N;
+            float k = 0.9f + 0.08f * fbm(u, v, 4, 3, 149);
+            float r0 = 0.62f, g0 = 0.58f, b0 = 0.48f;
+            for (int f = 0; f < 12; f++) {                /* bouquets : petites fleurs rouges et feuilles vertes */
+                float fx = tex_h(f, 1, 151), fy = tex_h(f, 2, 151);
+                float ddx = fabsf(u - fx), ddy = fabsf(v - fy);
+                ddx = fminf(ddx, 1 - ddx); ddy = fminf(ddy, 1 - ddy);
+                float d = sqrtf(ddx * ddx + ddy * ddy);
+                float a = atan2f(v - fy, u - fx);
+                if (d < 0.035f * (0.7f + 0.3f * cosf(a * 5))) { r0 = 0.6f; g0 = 0.22f; b0 = 0.2f; }
+                else if (d < 0.06f && d > 0.045f && fmodf(a + 7, 2.1f) < 0.5f) { r0 = 0.3f; g0 = 0.42f; b0 = 0.26f; }
+            }
+            if (fmodf(u * 8, 1.0f) < 0.02f) k *= 0.9f;
+            if (fbm(u, v, 3, 4, 157) > 0.66f) { k *= 0.75f; g0 *= 0.92f; b0 *= 0.8f; }   /* humidite */
+            px_set(img, N, x, y, r0 * k, g0 * k, b0 * k);
+        }
+    upload_rgb_mip(&texMat[MAT_FLEURI], img, N);
+
+    /* carrelage de sol (1,2 m = 4 x 4 carreaux) et faience murale (6 x 6) : blanc sale, joints noircis */
+    for (int pass = 0; pass < 2; pass++) {
+        int n = pass ? 6 : 4;
+        for (int y = 0; y < N; y++)
+            for (int x = 0; x < N; x++) {
+                float u = (float)x / N, v = (float)y / N;
+                int tx = (int)(u * n), ty = (int)(v * n);
+                float ju = fmodf(u * n, 1.0f), jv = fmodf(v * n, 1.0f);
+                float k = 0.9f + 0.06f * tex_h(tx, ty, 163 + pass) + 0.04f * fbm(u, v, 8, 2, 167);
+                float r0 = 0.82f, g0 = 0.84f, b0 = 0.82f;
+                if (pass && (tx + ty) % 7 == 0) { r0 = 0.62f; g0 = 0.74f; b0 = 0.72f; }   /* quelques carreaux verts */
+                if (ju < 0.04f || jv < 0.04f) { r0 = 0.32f; g0 = 0.3f; b0 = 0.26f; }   /* joints */
+                if (fbm(u, v, 4, 3, 173 + pass) > 0.63f) { k *= 0.8f; b0 *= 0.85f; }   /* crasse, rouille */
+                if (tex_h(tx, ty, 179) < 0.05f && fabsf(ju - jv) < 0.02f) k *= 0.5f;   /* carreau fele */
+                px_set(img, N, x, y, r0 * k, g0 * k, b0 * k);
+            }
+        upload_rgb_mip(&texMat[pass ? MAT_FAIENCE : MAT_CARRELAGE], img, N);
+    }
+
+    /* papier peint d'enfant : bleu pale, etoiles et lunes jaunes, gribouillages au crayon */
+    for (int y = 0; y < N; y++)
+        for (int x = 0; x < N; x++) {
+            float u = (float)x / N, v = (float)y / N;
+            float k = 0.9f + 0.1f * fbm(u, v, 4, 2, 181);
+            float r0 = 0.48f, g0 = 0.58f, b0 = 0.66f;
+            for (int e = 0; e < 10; e++) {
+                float ex = tex_h(e, 3, 191), ey = tex_h(e, 4, 191);
+                float dx = u - ex, dy = v - ey;
+                float a = atan2f(dy, dx), d = sqrtf(dx * dx + dy * dy);
+                if (d < 0.03f * (0.55f + 0.45f * cosf(a * 5))) { r0 = 0.82f; g0 = 0.72f; b0 = 0.36f; }
+            }
+            float g = fabsf(sinf(u * 40 + sinf(v * 23) * 2) - v * 3 + 1.4f);   /* trait de crayon, bas du mur */
+            if (v > 0.55f && g < 0.05f) { r0 = 0.5f; g0 = 0.1f; b0 = 0.1f; }
+            if (fbm(u, v, 3, 3, 193) > 0.65f) k *= 0.78f;
+            px_set(img, N, x, y, r0 * k, g0 * k, b0 * k);
+        }
+    upload_rgb_mip(&texMat[MAT_ENFANT], img, N);
+
+    /* lino en damier, jauni, decolle */
+    for (int y = 0; y < N; y++)
+        for (int x = 0; x < N; x++) {
+            float u = (float)x / N, v = (float)y / N;
+            int c = ((int)(u * 4) + (int)(v * 4)) & 1;
+            float k = 0.9f + 0.08f * tex_h(x, y, 197) + 0.06f * fbm(u, v, 8, 2, 199);
+            float r0 = c ? 0.78f : 0.12f, g0 = c ? 0.74f : 0.12f, b0 = c ? 0.6f : 0.13f;
+            if (fbm(u, v, 3, 4, 211) > 0.64f) { k *= 0.8f; r0 *= 1.05f; }
+            px_set(img, N, x, y, r0 * k, g0 * k, b0 * k);
+        }
+    upload_rgb_mip(&texMat[MAT_LINO], img, N);
+
+    /* beton : gris, coulures, trous de banche */
+    for (int y = 0; y < N; y++)
+        for (int x = 0; x < N; x++) {
+            float u = (float)x / N, v = (float)y / N;
+            float k = 0.75f + 0.25f * fbm(u, v, 8, 4, 223) + 0.05f * tex_h(x, y, 227);
+            if (tex_h(x / 6, y / 6, 229) < 0.02f) k *= 0.6f;
+            k *= 0.9f + 0.1f * vnoise(u * 4, v * 32, 32, 233);   /* coulures */
+            px_set(img, N, x, y, 0.42f * k, 0.41f * k, 0.39f * k);
+        }
+    upload_rgb_mip(&texMat[MAT_BETON], img, N);
     free(img);
 
     /* faisceau de lampe (128) : coeur, halo, anneau du reflecteur, imperfections ; bord noir (CLAMP) */

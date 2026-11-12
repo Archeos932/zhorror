@@ -180,6 +180,37 @@ static int bourdon_main(const char *cmd) {
             if (strstr(shotPath, "hall2")) { P.pos = P.prevPos = v3(9.5f, 0, 5.5f); P.yaw = P.lampeYaw = PI / 2 + 0.15f; }
             if (strstr(shotPath, "hall3")) { P.pos = P.prevPos = v3(2.5f, 0, 14.5f); P.yaw = P.lampeYaw = PI / 2; }
         }
+        else if (strstr(shotPath, "chambre") || strstr(shotPath, "sdb") || strstr(shotPath, "enfant") || strstr(shotPath, "cuisine") ||
+                 strstr(shotPath, "reserve") || strstr(shotPath, "noe")) {   /* vitrine des pieces : a la porte, on regarde dedans */
+            int z = strstr(shotPath, "chambre") ? ZONE_CHAMBRE : strstr(shotPath, "sdb") ? ZONE_SDB : strstr(shotPath, "enfant") ? ZONE_ENFANT :
+                    strstr(shotPath, "cuisine") ? ZONE_CUISINE : strstr(shotPath, "reserve") ? ZONE_RESERVE : ZONE_NOE;
+            charger_vitrine(); monstres_reset(); nfus = 0;
+            int ip = piece_de_zone(z);
+            if (ip >= 0) {
+                Piece *pc = &pieces[ip];
+                V3 c = v3(pc->x0 + pc->iw * 0.5f, 0, pc->z0 + pc->ih * 0.5f), pt = v3(pc->porteX + 0.5f, 0, pc->porteZ + 0.5f);
+                V3 d = vnorm(vsub(c, pt));
+                P.pos = P.prevPos = vadd(pt, vmul(d, 0.7f)); P.yaw = P.lampeYaw = atan2f(d.x, -d.z); P.pitch = P.lampePitch = -0.12f;
+            }
+            monde_reconstruire();
+        }
+        else if (strstr(shotPath, "armoire") || strstr(shotPath, "souslit")) {   /* cachettes de la chambre (vitrine) */
+            charger_vitrine(); monstres_reset(); nfus = 0; monde_reconstruire();
+            for (int i = 0; i < nmeubles; i++) {
+                const Meuble *m = &meubles[i];
+                if (strstr(shotPath, "armoire") && m->type == MB_ARMOIRE && pieces[m->piece].zone == ZONE_CHAMBRE) {
+                    P.cache = 2; P.armoire = i; P.pos = P.prevPos = v3(m->x, 0, m->z); P.yaw = P.lampeYaw = m->yaw + 0.25f; P.lampe = 0;
+                    P.oeil = P.prevOeil = OEIL_DEBOUT;
+                }
+                if (strstr(shotPath, "souslit") && m->type == MB_LIT) {
+                    P.cache = 1; P.pos = P.prevPos = v3(m->x, 0, m->z); P.yaw = P.lampeYaw = m->yaw; P.lampe = 0;
+                    P.oeil = P.prevOeil = OEIL_SOUS_LIT; P.accroupi = 1;
+                    monstres_reset(); mon_ajouter(MON_RODEUR, 1);   /* il passe devant le lit */
+                    V3 av = view_dir(m->yaw, 0);
+                    mon[0].pos = mon[0].prevPos = v3(m->x + av.x * 1.9f + 0.3f, 0, m->z + av.z * 1.9f); mon[0].yaw = m->yaw + PI / 2; mon[0].anim = 0.4f;
+                }
+            }
+        }
         else if (strstr(shotPath, "multi")) {           /* un coequipier, sa lampe, son pseudo */
             netMode = NET_HOTE; monSlot = 0;
             P.pos = P.prevPos = v3(2.5f, 0, 27.5f); P.yaw = P.lampeYaw = PI / 2;
@@ -278,6 +309,7 @@ static int bourdon_main(const char *cmd) {
         mac_swap();
 #endif
         ambiance_follow();
+        pieces_sons(dt);
         audio_update();
         micro_maj(dt);
         if (pendingAction) do_action();

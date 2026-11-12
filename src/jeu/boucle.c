@@ -20,6 +20,7 @@ static void game_tick(float dt) {
     if (netMode == NET_CLIENT) monstres_client_tick(dt);  /* en ligne, c'est l'hote qui fait bouger les monstres */
     else monstres_tick(dt, gameT);
     objectif_tick(dt);
+    pieces_tick(dt);
     joueurs_tick(dt);
     reseau_hote_tick(dt);
     ecoutePos = P.pos; ecouteYaw = P.yaw;

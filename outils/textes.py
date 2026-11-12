@@ -82,6 +82,59 @@ RADIO = [
 ("RADIO : Quatorze.", "RADIO : Quinze.", "RADIO : Seize."),
 ]
 
+# cassettes de Noe : trouvees dans ses campements (niveaux 2 a 6), regardees sur son camescope
+CASSETTES = [
+("CASSETTE DE NOE - 1", """(l'image tremble, une moquette jaune, la respiration de Noe)
+
+« Jour... deux, je crois. Y a pas de nuit ici.
+  Les lumieres s'eteignent jamais. Enfin, si. Parfois.
+
+  Et quand elles s'eteignent...
+
+  (il tourne la camera vers le fond du couloir : quelque chose, tres grand)
+
+  ... faut pas regarder ailleurs. »""",
+ "CASSETTE 1 - Noe : « Quand les lumieres s'eteignent... faut pas regarder ailleurs. »"),
+("CASSETTE DE NOE - 2", """(un bureau, une radio posee sur une chaise)
+
+« J'ai trouve une radio. Y a une femme dessus. Helene.
+  Elle est gentille. Elle m'a dit ou aller.
+
+  (il chuchote)
+
+  ... Mais elle connait mon prenom.
+  Je lui ai jamais dit mon prenom. »""",
+ "CASSETTE 2 - Noe : « La femme de la radio connait mon prenom. Je lui ai jamais dit. »"),
+("CASSETTE DE NOE - 3", """(filme depuis l'interieur d'une armoire, par la fente)
+
+(quelque chose respire contre la porte)
+
+« ... elle m'appelle.
+  Avec la voix de maman.
+
+  Me cachez pas sous le lit. Elle regarde toujours sous le lit. »""",
+ "CASSETTE 3 - Noe, cache dans une armoire : « Elle m'appelle avec la voix de maman. »"),
+("CASSETTE DE NOE - 4", """(une echelle de service, de l'eau qui goutte)
+
+« Si la radio vous dit de descendre, montez.
+  Si elle vous dit de rester ensemble...
+
+  (long silence)
+
+  ... elle a raison, pour une fois.
+  Je vous attends en haut. La ou tout a commence. »""",
+ "CASSETTE 4 - Noe : « Si la radio vous dit de descendre, montez. Je vous attends en haut. »"),
+("CASSETTE DE NOE - 5", """(Noe, maigre, barbu, il a vieilli de dix ans)
+
+« Je l'ai depuis le debut. La cle de service.
+  Mais elle n'ouvre que de l'exterieur.
+
+  Et de dedans... il faut que quelqu'un tienne la porte.
+
+  Je suis desole. »""",
+ "CASSETTE 5 - Noe : « La cle n'ouvre que de dehors. Quelqu'un devra tenir la porte. »"),
+]
+
 MORTS = ["IL T'A ENTENDU.", "TU L'AS LAISSÉ DANS LE NOIR.", "ELLE A VU TA LUMIÈRE."]
 CONSEILS = ["Il n'entend que le bruit : accroupis-toi (Ctrl), évite l'eau et le verre.",
             "Il n'avance que dans le noir : garde ta lampe ou un néon sur lui.",
@@ -113,6 +166,12 @@ src.append('static const char *const titreNiveaux[%d] = { %s };\n' % (len(NIVEAU
 src.append('#define NTEXTES_NIVEAUX %d\n' % len(NIVEAUX))
 src.append('static const char *const texteRadio[%d][3] = {\n%s};\n' % (len(RADIO), ''.join('    { %s },\n' % ', '.join(c(x) for x in r) for r in RADIO)))
 src.append('#define NTEXTES_RADIO %d\n' % len(RADIO))
+for i, (titre, txt, court) in enumerate(CASSETTES):
+    src.append(tab('texteCassette%d' % i, txt.split('\n')))
+src.append('static const char *const *const texteCassettes[%d] = { %s };\n' % (len(CASSETTES), ', '.join('texteCassette%d' % i for i in range(len(CASSETTES)))))
+src.append('static const char *const titreCassettes[%d] = { %s };\n' % (len(CASSETTES), ', '.join(c(t) for t, _, _ in CASSETTES)))
+src.append('static const char *const texteCassetteCourt[%d] = { %s };\n' % (len(CASSETTES), ', '.join(c(k) for _, _, k in CASSETTES)))
+src.append('#define NTEXTES_CASSETTES %d\n' % len(CASSETTES))
 src.append('static const char *const texteMort[3] = { %s };\n' % ', '.join(c(x) for x in MORTS))
 src.append('static const char *const texteConseil[3] = { %s };\n' % ', '.join(c(x) for x in CONSEILS))
 racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

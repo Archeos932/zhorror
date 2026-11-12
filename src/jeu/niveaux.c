@@ -46,6 +46,14 @@ static void niveau_charger_ex(int n, int avecCarton) {
         niveauFousPM = 80;
         genEau = n == 3 ? 16 : 3 + k;                     /* le sous-sol humide est inonde */
         genVerre = 3 + k; genMachoires = k < 2 ? 1 : k; genAlarmes = k < 2 ? 0 : k / 2;   /* les premiers restent simples */
+        {                                                 /* pieces a theme : 2 ou 3 au hasard (selon n), + le campement de Noe */
+            static const int pool[5] = { ZONE_CHAMBRE, ZONE_SDB, ZONE_ENFANT, ZONE_CUISINE, ZONE_RESERVE };
+            unsigned h = hash32((unsigned)n * 2654435761u);
+            int nz = 2 + (int)(h % 2), debut = (int)((h >> 8) % 5);
+            genNZones = 0;
+            for (int i = 0; i < nz; i++) genZones[genNZones++] = pool[(debut + i * 2) % 5];
+            if (n >= 2 && n <= 6) genZones[genNZones++] = ZONE_NOE;   /* une cassette par niveau de l'histoire */
+        }
         int taille = CARTE_GEN_MIN - 4 + 6 * k < 84 ? CARTE_GEN_MIN - 4 + 6 * k : 84;
         generer_niveau(1000u + (unsigned)n * 7919u, taille, taille);
         niveauFog = FOG_DENSITE * (1.0f + 0.1f * (k + 1));
@@ -93,9 +101,12 @@ static int objet_vise_de(V3 pos, float yaw) {
 static int objet_vise(void) { return objet_vise_de(P.pos, P.yaw); }
 
 
+static int pieces_ramasser(int k, V3 pos, float yaw);     /* jeu/pieces.c : la cassette de Noe */
+
 /* le joueur k (place) ramasse ce qu'il vise ; local : effets a l'ecran */
 static void ramasser(int k, V3 pos, float yaw) {
     int local = k == slot_local(), o = objet_vise_de(pos, yaw);
+    if (o < 0) { pieces_ramasser(k, pos, yaw); return; }
     if (o >= 100) {                                       /* un faux : il hurle */
         Piege *pg = &pieges[o - 100];
         pg->arme = 0; pg->t = 0;

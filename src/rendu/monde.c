@@ -269,6 +269,7 @@ static void monde_draw(float t, float lampe, float dyaw, float dpitch) {
     glBindTexture(GL_TEXTURE_2D, texNeon);
     glBegin(GL_QUADS);
     for (int i = 0; i < nneons; i++) {
+        if (neons[i].lampe) continue;                     /* les lampes de meubles sont dessinees avec leur meuble */
         float on = neon_allume(i, t) ? 1.0f : 0.07f, x = neons[i].x, z = neons[i].z, y = HAUT_PLAFOND - 0.004f;
         glColor3f(on, on, on * 0.97f);
         glTexCoord2f(0, 0); glVertex3f(x - 0.6f, y, z - 0.3f);   /* vu d'en dessous : sens direct */

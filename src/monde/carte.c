@@ -8,7 +8,6 @@
 
    Case (gx, gz) = x dans [gx, gx + 1], z dans [gz, gz + 1]. Sol en y = 0, plafond en y = HAUT_PLAFOND. */
 
-#define CARTE_MAX 96
 static unsigned char grille[CARTE_MAX][CARTE_MAX];        /* [gz][gx] : 0 libre, 1 mur, 2 cloison basse (MURET_H) */
 #define MURET_H 1.1f                                      /* cloison de bureau : on voit par-dessus, on ne passe pas */
 static unsigned char sansNeon[CARTE_MAX][CARTE_MAX];      /* jamais de neon ici (zone noire) */
@@ -18,7 +17,7 @@ static float carteDepartYaw;
 static int niveauMortsPM = 120, niveauFousPM = 60;        /* pour mille : neons morts / fous (selon le niveau) */
 
 enum { NEON_OK, NEON_FOU, NEON_MORT, NEON_ASC };          /* allume / clignote / eteint / cabine d'ascenseur */
-typedef struct { float x, z; int etat; unsigned graine; } Neon;
+typedef struct { float x, z, y; int etat, lampe; unsigned graine; } Neon;   /* lampe : lampe de chevet, lanterne (pas au plafond) */
 #define MAXNEON 768
 static Neon neons[MAXNEON];
 static int nneons;
@@ -69,7 +68,7 @@ static unsigned hash32(unsigned x) {                      /* melange d'entiers (
 static void add_neon(int gx, int gz, int etat) {
     if (nneons >= MAXNEON) return;
     Neon *n = &neons[nneons++];
-    n->x = gx + 0.5f; n->z = gz + 0.5f; n->etat = etat;
+    n->x = gx + 0.5f; n->z = gz + 0.5f; n->etat = etat; n->lampe = 0; n->y = HAUT_PLAFOND - 0.02f;
     n->graine = hash32((unsigned)(gx * 73856093) ^ (unsigned)(gz * 19349663));
 }
 
@@ -81,6 +80,7 @@ static void carte_vider(int w, int h) {
     memset(sol, 0, sizeof sol);
     memset(lumCase, 0, sizeof lumCase);
     memset(&asc, 0, sizeof asc);
+    meubles_vider();
     carteDepart = v3(carteW * 0.5f, 0, carteH * 0.5f); carteDepartYaw = 0;
 }
 
@@ -213,8 +213,9 @@ static int visible_xz(float ax, float az, float bx, float bz) {
     return ray_grille(ax, az, bx - ax, bz - az, 1.0f) >= 1.0f;
 }
 
-/* repousse un cercle (x, z, r) hors des cases bloquees voisines (deux passes pour les coins) */
-static void carte_collision(float *x, float *z, float r) {
+/* repousse un cercle (x, z, r) hors des cases bloquees voisines et des meubles (deux passes pour les coins) ;
+   accroupi : on passe sous les lits */
+static void carte_collision_ex(float *x, float *z, float r, int accroupi) {
     for (int passe = 0; passe < 2; passe++) {
         int x0 = (int)floorf(*x - r) - 1, x1 = (int)floorf(*x + r) + 1, z0 = (int)floorf(*z - r) - 1, z1 = (int)floorf(*z + r) + 1;
         for (int gz = z0; gz <= z1; gz++)
@@ -231,8 +232,10 @@ static void carte_collision(float *x, float *z, float r) {
                     if (m == 0) *x = gx - r; else if (m == 1) *x = gx + 1 + r; else if (m == 2) *z = gz - r; else *z = gz + 1 + r;
                 }
             }
+        meubles_collision(x, z, r, accroupi);
     }
 }
+static void carte_collision(float *x, float *z, float r) { carte_collision_ex(x, z, r, 0); }
 
 /* distances en cases depuis (sx, sz) par les cases libres (parcours en largeur) ; -1 = inaccessible.
    Sert aux tests, a la generation (placer fusibles et ascenseur loin) et aux chemins du monstre. */
@@ -247,7 +250,7 @@ static void carte_distances_dans(short d[CARTE_MAX][CARTE_MAX], int sx, int sz) 
         int x = file[a][0], z = file[a][1]; a++;
         for (int k = 0; k < 4; k++) {
             int nx = x + cotes[k][0], nz = z + cotes[k][1];
-            if (cell_mur(nx, nz) || d[nz][nx] >= 0) continue;
+            if (cell_mur(nx, nz) || occupe[nz][nx] || d[nz][nx] >= 0) continue;   /* les meubles encombrent */
             d[nz][nx] = (short)(d[z][x] + 1);
             file[b][0] = (short)nx; file[b][1] = (short)nz; b++;
         }
@@ -261,6 +264,6 @@ static int carte_atteignables(int *libres) {
     *libres = 0;
     carte_distances((int)carteDepart.x, (int)carteDepart.z);
     for (int z = 0; z < carteH; z++)
-        for (int x = 0; x < carteW; x++) { *libres += !grille[z][x]; n += distCase[z][x] >= 0; }
+        for (int x = 0; x < carteW; x++) { *libres += !grille[z][x] && !occupe[z][x]; n += distCase[z][x] >= 0; }
     return n;
 }

@@ -6,6 +6,7 @@
    bout le plus lointain, fusibles disperses loin du depart et loin les uns des autres. */
 
 static int genEau = 3, genVerre = 3, genMachoires = 2, genAlarmes = 0;   /* reglees par le niveau (niveaux.c) */
+static int genZones[6], genNZones;                       /* pieces a theme a creuser (niveaux.c) */
 
 static int irand(int n) { return n > 0 ? (int)(frand() * n) % n : 0; }
 
@@ -66,6 +67,7 @@ static void generer_niveau(unsigned graine, int w, int h) {
         if (n == libres - np) libres -= np;
         else for (int i = 0; i < np; i++) grille[pose[i][1]][pose[i][0]] = 0;   /* il coupait le niveau : retire */
     }
+    placer_pieces(genZones, genNZones);                   /* chambres, salles de bain... (recalcule distCase) */
     carte_distances(sx, sz);
 
     for (int k = 0; k < 2 + irand(3); k++) {              /* zones noires (sans neon) */

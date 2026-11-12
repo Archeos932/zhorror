@@ -355,5 +355,80 @@ static void make_sounds(void) {
     }
     sounds[S_RADIO] = mksound(b, n);
 
+    /* neige de tele : souffle large + sifflement aigu du tube ; 2 s, fondu croise pour boucler */
+    b = sbuf(2.0f, &n); lp = 0;
+    for (int i = 0; i < n; i++) {
+        t = (float)i / SR;
+        lp += 0.6f * (noise() - lp);
+        b[i] = lp * 0.35f + sinf(t * 2 * PI * 7500) * 0.03f;     /* 7500 Hz x 2 s : periode entiere */
+    }
+    { int x = (int)(0.03f * SR); for (int i = 0; i < x; i++) { float k = (float)i / x; b[i] = b[i] * k + b[n - x + i] * (1 - k); } b[n - 1] = b[0]; }
+    sounds[S_TELE] = mksound(b, n);
+
+    /* frigo : ronronnement 50 Hz et harmoniques (periodes entieres sur 2 s), un peu de souffle */
+    b = sbuf(2.0f, &n); lp = 0;
+    for (int i = 0; i < n; i++) {
+        t = (float)i / SR;
+        lp += 0.02f * (noise() - lp);
+        b[i] = (sinf(t * 2 * PI * 50) * 0.25f + sinf(t * 2 * PI * 100) * 0.18f + sinf(t * 2 * PI * 150) * 0.08f) * (0.85f + 0.15f * sinf(t * 2 * PI * 1.5f)) + lp * 0.6f;
+    }
+    { int x = (int)(0.05f * SR); for (int i = 0; i < x; i++) { float k = (float)i / x; b[i] = b[i] * k + b[n - x + i] * (1 - k); } b[n - 1] = b[0]; }
+    sounds[S_FRIGO] = mksound(b, n);
+
+    /* boite a musique : la melodie du jeu (comme son/ambiance.c), cloche FM, desaccordee, qui ralentit */
+    {
+        static const signed char mel[12] = { 0, 3, 7, 12, 11, 7, 3, 2, 0, 3, 7, -1 };
+        b = sbuf(9.0f, &n);
+        float tn = 0;
+        for (int k = 0; k < 12; k++) {
+            float f = 880.0f * powf(2.0f, (mel[k] + (frand() - 0.5f) * 0.4f) / 12.0f);
+            int i0 = (int)(tn * SR);
+            for (int i = 0; i < (int)(1.6f * SR) && i0 + i < n; i++) {
+                float tt = (float)i / SR, ph = f * tt;
+                b[i0 + i] += sinf(2 * PI * ph + 2.0f * expf(-tt * 6) * sinf(2 * PI * ph * 3.5f)) * 0.3f * expf(-tt * 2.2f);
+            }
+            tn += 0.55f + k * 0.035f;                     /* le ressort se detend */
+        }
+    }
+    sounds[S_BOITE] = mksound(b, n);
+
+    /* goutte : petit "plic" qui descend */
+    b = sbuf(0.25f, &n);
+    for (int i = 0; i < n; i++) { t = (float)i / SR; b[i] = sinf(2 * PI * (1400 - 2600 * t) * t) * 0.4f * expf(-t * 30); }
+    sounds[S_GOUTTE] = mksound(b, n);
+
+    /* grincement : charniere (friction : impulsions irregulieres filtrees par une resonance qui glisse) */
+    b = sbuf(1.1f, &n);
+    {
+        float bp = 0, bpv = 0;
+        for (int i = 0; i < n; i++) {
+            t = (float)i / SR;
+            float fc = 700 + 500 * sinf(t * 3.1f) + 200 * sinf(t * 11), f = 2 * sinf(PI * fc / SR);
+            float in = (frand() < 0.02f + 0.03f * sinf(t * 17) * sinf(t * 17)) ? noise() * 3 : 0;
+            float hp = in - bp - 0.06f * bpv;
+            bpv += f * hp; bp += f * bpv;
+            b[i] = tanhf(bpv * 0.5f) * sinf(PI * t / 1.1f) * 0.7f;
+        }
+    }
+    sounds[S_GRINCEMENT] = mksound(b, n);
+
+    /* jouet : choc de plastique, rebonds, et un "couinement" de peluche */
+    b = sbuf(1.2f, &n);
+    for (int r = 0; r < 4; r++) {
+        int i0 = (int)((0.0f + r * 0.18f * (1 - r * 0.15f)) * SR);
+        for (int i = 0; i < (int)(0.08f * SR) && i0 + i < n; i++) { float tt = (float)i / SR; b[i0 + i] += (noise() * 0.5f + sinf(2 * PI * 900 * tt) * 0.3f) * expf(-tt * 60) * (1 - r * 0.22f); }
+    }
+    for (int i = (int)(0.75f * SR); i < n; i++) { t = (float)i / SR - 0.75f; b[i] += sinf(2 * PI * (1300 + 300 * sinf(t * 18)) * t) * 0.18f * sinf(PI * fminf(t / 0.35f, 1)); }
+    sounds[S_JOUET] = mksound(b, n);
+
+    /* cassette : clic du boitier, puis la bande qui ronronne un instant */
+    b = sbuf(0.8f, &n); lp = 0;
+    for (int i = 0; i < n; i++) {
+        t = (float)i / SR;
+        lp += 0.1f * (noise() - lp);
+        b[i] = noise() * 0.6f * expf(-t * 200) + (t > 0.1f ? (lp * 0.5f + sinf(2 * PI * 60 * t) * 0.1f) * sinf(PI * (t - 0.1f) / 0.7f) : 0);
+    }
+    sounds[S_CASSETTE] = mksound(b, n);
+
     rng = keep;
 }

@@ -33,6 +33,13 @@ enum { S_BOURDON,                                         /* neons : boucle de 2
        S_RUGISSEMENT,                                     /* le Rodeur se lance a ta poursuite */
        S_CRI_RAMPANTE,                                    /* la Rampante a vu ta lumiere */
        S_RADIO,                                           /* gresillement de radio (messages) */
+       S_TELE,                                            /* neige d'une tele (boucle de 2 s) */
+       S_FRIGO,                                           /* ronronnement d'un frigo (boucle de 2 s) */
+       S_BOITE,                                           /* boite a musique : la melodie du centre commercial */
+       S_GOUTTE,                                          /* goutte qui tombe dans l'eau */
+       S_GRINCEMENT,                                      /* porte d'armoire / de frigo qui grince */
+       S_JOUET,                                           /* un jouet qui tombe et roule */
+       S_CASSETTE,                                        /* cassette VHS ramassee */
        S_COUNT };
 typedef struct { short *data; int len; } Sound;
 /* loop : voix en boucle, jamais volee par play ; fade : baisse de volume par echantillon (arret sans clic) */

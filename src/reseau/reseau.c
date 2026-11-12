@@ -12,7 +12,7 @@
 static void reset_game(void);                             /* jeu/boucle.c */
 static int autoMulti;                                     /* plateforme/demarrage.c : --multi (tests) */
 
-#define RESEAU_VER 1                                      /* a incrementer des qu'un paquet change */
+#define RESEAU_VER 2                                      /* a incrementer des qu'un paquet change */
 #define RESEAU_HZ 15.0f
 enum { SAL_AUCUN, SAL_CONNEXION, SAL_LISTE, SAL_DANS, SAL_JEU };
 static int salEtat, salHote;
@@ -28,6 +28,7 @@ static int mortHote[MAXP];                                /* hote : type + 1 du 
 static float tousMortsT;
 static int netRecus, netEnvoyes;                          /* compteurs (journal, tests) */
 
+#define MEUBLES_RESEAU 48
 #pragma pack(push, 1)
 typedef struct { unsigned char type, ver, pad[2]; NetJ j; } PaquetJ;
 typedef struct { float x, z, yaw, anim; unsigned char type, etat, actif, pad; } NetMon;
@@ -40,6 +41,7 @@ typedef struct {
     unsigned char piegeSeq[MAXP];
     NetJ j[MAXP];
     NetMon m[MAXMON];
+    unsigned char meubleEtat[MEUBLES_RESEAU];             /* les meubles vivants (tele, frigo, mannequins, cassette...) */
 } Snap;
 #pragma pack(pop)
 typedef char snap_tient[((sizeof(Snap) + 2) / 3 * 4 + 16 < WS_LIGNE) ? 1 : -1];   /* l'instantane tient dans une ligne */
@@ -61,6 +63,8 @@ static void snap_faire(Snap *s) {
         else if (JP[k].actif) { s->j[k] = JP[k].st; s->actifs |= (unsigned char)(1 << k); }
         if (mortHote[k]) { s->j[k].flags |= JF_MORT; s->j[k].mortType = (unsigned char)(mortHote[k] - 1); }
     }
+    for (int i = 0, k = 0; i < nmeubles && k < MEUBLES_RESEAU; i++)
+        if (meuble_vivant(meubles[i].type)) s->meubleEtat[k++] = (unsigned char)meubles[i].etat;
     s->nmon = (unsigned char)nmon;
     for (int i = 0; i < nmon; i++) {
         NetMon *m = &s->m[i];
@@ -89,6 +93,8 @@ static void snap_appliquer(const Snap *s) {
         for (int i = 0; i < MAXMON; i++) monNetEtatVu[i] = -1;
     }
     gameT = s->gameT;
+    for (int i = 0, k = 0; i < nmeubles && k < MEUBLES_RESEAU; i++)   /* les meubles : memes indices chez tous */
+        if (meuble_vivant(meubles[i].type)) meuble_etat(i, s->meubleEtat[k++]);
     for (int i = 0; i < nfus && i < 32; i++)              /* fusibles pris par quelqu'un */
         if ((s->fusMask >> i & 1) && !fus[i].pris) {
             fus[i].pris = 1; fusPris++;

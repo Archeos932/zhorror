@@ -42,7 +42,8 @@ static const char *const niveauTest[] = {
 #define NIVEAU_TEST_N ((int)(sizeof niveauTest / sizeof niveauTest[0]))
 
 /* Le vrai niveau 1 : la salle de depart, un open space de bureaux abandonnes (cloisons basses, piliers), un couloir
-   inonde aux neons fous, une zone noire, des salles du fond ; un fusible par zone, une seule machoire. */
+   inonde aux neons fous, une zone noire, des salles du fond ; un fusible par zone, une seule machoire. Les 6
+   rangees de murs du bas recoivent une chambre et une salle de bain (placer_pieces, graine fixe). */
 static const char *const niveauUn[] = {
     "#############################################",
     "#.......#.........................#,,,,,,,,,#",
@@ -69,11 +70,38 @@ static const char *const niveauUn[] = {
     "#...........#...........#.......####.######.#",
     "#...........#...........#...................#",
     "#############################################",
+    "#############################################",
+    "#############################################",
+    "#############################################",
+    "#############################################",
+    "#############################################",
+    "#############################################",
 };
 #define NIVEAU_UN_N ((int)(sizeof niveauUn / sizeof niveauUn[0]))
+
+/* vitrine : un couloir et les six pieces a theme autour (captures --shot chambre, sdb..., et tests) */
+static void charger_vitrine(void) {
+    unsigned keep = rng;
+    rng = 1998;
+    carte_vider(44, 26);
+    creuser(1, 12, 42, 13);
+    carteDepart = v3(2.5f, 0, 12.5f);
+    int zs[6] = { ZONE_CHAMBRE, ZONE_SDB, ZONE_ENFANT, ZONE_CUISINE, ZONE_RESERVE, ZONE_NOE };
+    placer_pieces(zs, 6);
+    placer_neons();
+    rng = keep;
+}
+static int piece_de_zone(int z) { for (int i = 0; i < npieces; i++) if (pieces[i].zone == z) return i; return -1; }
 
 static int carteTest;                                     /* tests et captures : la carte d'essai (coordonnees connues) */
 static void charger_niveau_essai(void) {
     if (carteTest) carte_charger(niveauTest, NIVEAU_TEST_N);
-    else carte_charger(niveauUn, NIVEAU_UN_N);
+    else {
+        carte_charger(niveauUn, NIVEAU_UN_N);
+        unsigned keep = rng;                              /* une chambre et une salle de bain, creusees en bas */
+        rng = 2003;
+        int zs[2] = { ZONE_CHAMBRE, ZONE_SDB };
+        placer_pieces(zs, 2);
+        rng = keep;
+    }
 }

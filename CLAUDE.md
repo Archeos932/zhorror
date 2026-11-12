@@ -81,5 +81,15 @@ Le propriétaire est francophone : réponses, commentaires et docs **en françai
     `bourdonnement --multi rejoindre --serveur 127.0.0.1:8787 --nom B --temps 28 --log b.txt` (2 s après).
 - **Décor** : plinthes, corniches, linteaux (`LINTEAU_Y`), cloisons basses (`'='`, `grille` = 2 : bloquent le
   passage, pas la vue / la lumière / le son : `cell_opaque` vs `cell_mur`), dalles arrachées, `decals[]`.
+- **Pièces à thème et meubles** : données dans `src/monde/meubles.c` (inclus **avant** `carte.c` : `zone[][]`,
+  `occupe[][]`, `meubles[]`, `pieces[]`, `meubleDef` = emprise / hauteur / bloquant / cachette, collisions) ;
+  `src/monde/pieces_gen.c` (`placer_piece` : bloc de murs plein, sinon construite par-dessus une zone ouverte avec
+  vérification de connexité ; `meubler` = gabarit par zone, repère `piece_pt(a, b)`) ; matériaux par zone
+  (`matSol` / `matMur` / `matPlaf`, `eclairage.c`) ; lampes de meubles = `Neon.lampe` (+ `y`) ; dessin
+  `src/rendu/meubles_rendu.c` ; vie des pièces `src/jeu/pieces.c` (événements, mannequins, boucles 3D, cassette) ;
+  état des meubles vivants dans `Snap.meubleEtat` (`meuble_vivant`, même ordre chez tous). Cachettes : `P.cache`
+  (1 sous un lit, 2 armoire), `JF_CACHE`, les monstres ignorent une cible cachée. Vitrine des 6 pièces :
+  `charger_vitrine()` (`niveau_essai.c`) pour les tests et les captures `chambre`, `sdb`, `enfant`, `cuisine`,
+  `reserve`, `noe`, `armoire`, `souslit`. Cassettes : `CASSETTES` dans `outils/textes.py`.
 - Cartes faites à la main (`niveau_essai.c`) : `niveauUn` (le vrai niveau 1) et `niveauTest` (tests et captures,
   `carteTest = 1` : ses coordonnées sont utilisées partout dans les tests ; capture `hall*` = niveau 1).

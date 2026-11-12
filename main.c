@@ -23,7 +23,9 @@
 #include "src/entrees/actions.c"                 /* touches physiques, actions A_*, touches par defaut */
 #include "src/entrees/saisie.c"                  /* input_poll, capture de la souris, fenetre (winW, winH) */
 
+#include "src/monde/meubles.c"                   /* meubles et pieces a theme : donnees, emprises, collisions */
 #include "src/monde/carte.c"                     /* grille, neons, ascenseur, fusibles, collisions, rayons */
+#include "src/monde/pieces_gen.c"                /* pieces a theme : creusees, une porte, meublees */
 #include "src/monde/generation.c"                /* niveaux generes par graine */
 #include "src/monde/niveau_essai.c"              /* niveau 1 fait a la main */
 #include "src/son/son3d.c"                       /* son 3D : distance, gauche / droite, etouffe derriere les murs */
@@ -35,6 +37,7 @@
 #include "src/jeu/histoire.c"                    /* cartons tapes a la machine, messages radio */
 #include "src/jeu/niveaux.c"                     /* niveaux, monstres par niveau, pieges, fusibles, ascenseur */
 #include "src/jeu/screamers.c"                   /* peur : screamers, apparitions, coeur, drone */
+#include "src/jeu/pieces.c"                      /* pieces a theme : evenements, mannequins, ambiances, cassettes */
 #include "src/reseau/ws.c"                       /* WebSocket vers le serveur de salons (Cloudflare) */
 #include "src/reseau/reseau.c"                   /* salons, etats, instantanes de l'hote */
 #include "src/jeu/boucle.c"                      /* game_tick (un pas de simulation), ambiance */
@@ -45,6 +48,7 @@
 #include "src/rendu/monde.c"                     /* dessin du monde : multitexture, neons fous, lampe projetee */
 #include "src/interface/texte.c"                 /* texte et rectangles 2D */
 #include "src/rendu/entites.c"                   /* Rodeur, fusibles, ascenseur, tete du screamer */
+#include "src/rendu/meubles_rendu.c"             /* meubles des pieces a theme */
 #include "src/interface/mise_a_jour.c"           /* mise a jour depuis GitHub (branche release) */
 #include "src/interface/config.c"                /* bourdonnement.ini : reglages du joueur */
 #include "src/interface/menus.c"                 /* ecran titre, pause, incrustation camescope */

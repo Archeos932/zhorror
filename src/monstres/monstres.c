@@ -194,7 +194,7 @@ static float locataire_tick(Monstre *m, float dt, float t) {
     if ((m->repathT -= dt) <= 0) {
         float bd = 1e9f; int best = -1;                   /* le plus proche */
         for (int i = 0; i < MAXP; i++)
-            if (cib[i].actif && !cib[i].mort && dist_xz(m->pos, cib[i].pos) < bd) { bd = dist_xz(m->pos, cib[i].pos); best = i; }
+            if (cib[i].actif && !cib[i].mort && !cib[i].cache && dist_xz(m->pos, cib[i].pos) < bd) { bd = dist_xz(m->pos, cib[i].pos); best = i; }
         if (best >= 0) { m->proie = best; mon_viser(m, cib[best].pos); }
     }
     if ((m->sonT -= dt) <= 0) { play3d(S_CRAQUE, m->pos, 0.8f, 0.7f + 0.5f * frand(), 14); m->sonT = 0.6f + frand() * 0.9f; }
@@ -250,7 +250,7 @@ static void monstres_tick(float dt, float t) {
         else v = rampante_tick(m, dt);
         if (m->etat != E_FIGE)
             for (int k = 0; k < MAXP; k++) {               /* il attrape ceux qu'il touche */
-                if (!cib[k].actif || cib[k].mort || dist_xz(m->pos, cib[k].pos) >= RODEUR_PRISE) continue;
+                if (!cib[k].actif || cib[k].mort || cib[k].cache || dist_xz(m->pos, cib[k].pos) >= RODEUR_PRISE) continue;   /* cache : il ne le trouve pas */
                 if (k == slot_local()) { if (tueur < 0) tueur = i; }
                 else reseau_mort_distante(k, m->type);
                 cib[k].mort = 1;
