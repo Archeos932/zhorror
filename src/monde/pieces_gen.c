@@ -6,6 +6,7 @@
    puis meubler() pose les meubles. Le repere d'une piece : le "fond" est le mur oppose a la porte ; piece_pt(a, b)
    donne un point a b metres du fond, decale de a metres le long du fond (a > 0 : a droite en entrant). */
 
+static float dist_xz_carte(V3 a, V3 b) { float dx = a.x - b.x, dz = a.z - b.z; return sqrtf(dx * dx + dz * dz); }
 static int irand_p(int n) { return n > 0 ? (int)(frand() * n) % n : 0; }
 
 /* vecteurs du repere : f vers le fond, l lateral (droite en entrant) ; demi-largeur et profondeur */
@@ -50,8 +51,10 @@ static void meubler(int ip) {
         { int li = poser(MB_LIT, p, ip, 0, 1.05f, versPorte); if (li >= 0 && frand() < 0.5f) meubles[li].etat = 1; }   /* une forme sous les draps */
         poser(MB_CHEVET, p, ip, 1.0f, 0.25f, versPorte);
         poser(MB_CHEVET, p, ip, -1.0f, 0.25f, versPorte);
-        int la = poser(MB_LAMPE, p, ip, cote * 1.0f, 0.25f, versPorte);
-        if (la >= 0) meubles[la].lumiere = add_lampe(meubles[la].x, meubles[la].z, 0.85f, NEON_OK);
+        for (int s = -1; s <= 1; s += 2) {                /* une lampe sur chaque chevet */
+            int la = poser(MB_LAMPE, p, ip, s * 1.0f, 0.25f, versPorte);
+            if (la >= 0) meubles[la].lumiere = add_lampe(meubles[la].x, meubles[la].z, 0.85f, s == cote ? NEON_OK : NEON_FOU);
+        }
         poser(MB_ARMOIRE, p, ip, cote * (dl - 0.32f), 2.5f, vmul(l, (float)-cote));
         int tv = poser(MB_TELE, p, ip, -cote * (dl - 0.27f), 1.4f, vmul(l, (float)cote));
         if (tv >= 0) meubles[tv].etat = 1;                /* la neige */
@@ -71,6 +74,7 @@ static void meubler(int ip) {
         poser(MB_JOUETS, p, ip, 0.3f, pr * 0.55f, versPorte);
         poser(MB_JOUETS, p, ip, -0.6f, pr * 0.7f, l);
         poser(MB_ARMOIRE, p, ip, cote * (dl - 0.32f), 2.4f, vmul(l, (float)-cote));
+        add_neon((int)floorf(c.x), (int)floorf(c.z), NEON_FOU);   /* un plafonnier qui saute */
         break;
     }
     case ZONE_CUISINE:
@@ -86,6 +90,7 @@ static void meubler(int ip) {
         for (int r = 0; r < 2; r++)
             for (int s = -1; s <= 1; s += 2) poser(MB_RAYONNAGE, p, ip, s * 0.55f, 0.3f + r * 1.5f, versPorte);
         poser(MB_CARTONS, p, ip, cote * (dl - 0.35f), pr - 1.2f, versPorte);
+        add_neon((int)floorf(c.x), (int)floorf(c.z), NEON_FOU);   /* les mannequins, dans les sursauts du neon */
         int nm = 3 + irand_p(3);
         for (int k = 0; k < nm; k++) {                    /* mannequins : trois places possibles chacun */
             int im = add_meuble(MB_MANNEQUIN, 0, 0, 0, ip);
@@ -101,6 +106,15 @@ static void meubler(int ip) {
         }
         break;
     }
+    case ZONE_CAMERAS:                                    /* le mur d'ecrans, une chaise, des classeurs */
+        { int ec = poser(MB_ECRANS, p, ip, 0, 0.42f, versPorte);
+          if (ec >= 0) meubles[ec].lumiere = add_lampe(meubles[ec].x, meubles[ec].z, 1.1f, NEON_OK); }   /* la lueur des ecrans */
+        poser(MB_CHAISE_BUREAU, p, ip, 0.1f, 1.25f, f);
+        poser(MB_CLASSEUR, p, ip, cote * (dl - 0.32f), 1.4f, vmul(l, (float)-cote));
+        poser(MB_CLASSEUR, p, ip, cote * (dl - 0.32f), 2.0f, vmul(l, (float)-cote));
+        poser(MB_PAPIERS, p, ip, -0.5f, 1.8f, l);
+        add_neon((int)floorf(c.x), (int)floorf(c.z), NEON_MORT);   /* plafonnier mort : seuls les ecrans eclairent */
+        break;
     case ZONE_NOE: {
         poser(MB_SAC_COUCHAGE, p, ip, -0.6f, 1.0f, versPorte);
         int ln = poser(MB_LANTERNE, p, ip, 0.25f, 0.6f, versPorte);
@@ -208,5 +222,75 @@ static void placer_pieces(const int *zones, int n) {
     for (int i = 0; i < n; i++) {
         placer_piece(zones[i]);
         carte_distances((int)carteDepart.x, (int)carteDepart.z);
+    }
+}
+
+/* Meubles de bureau dans les zones ordinaires : papiers partout, et contre les murs des bureaux, classeurs,
+   fontaines, plantes mortes. Un meuble bloquant ne se pose que sur une case qui touche UN mur et dont les autres
+   voisines (et les diagonales cote salle) sont libres : il ne peut jamais couper un passage. */
+static int case_reservee(int x, int z) {
+    if (abs(x - (int)carteDepart.x) <= 2 && abs(z - (int)carteDepart.z) <= 2) return 1;
+    if (asc.actif && abs(x - asc.gx) <= 2 && abs(z - asc.gz) <= 2) return 1;
+    for (int i = 0; i < nfus; i++) if (abs((int)fus[i].pos.x - x) <= 1 && abs((int)fus[i].pos.z - z) <= 1) return 1;
+    for (int i = 0; i < npieges; i++) if (abs((int)pieges[i].pos.x - x) <= 1 && abs((int)pieges[i].pos.z - z) <= 1) return 1;
+    for (int i = 0; i < npieces; i++) if (abs(pieces[i].porteX - x) <= 1 && abs(pieces[i].porteZ - z) <= 1) return 1;
+    return 0;
+}
+static int case_libre_vide(int x, int z) { return !cell_mur(x, z) && !occupe[z][x] && !zone[z][x]; }
+
+static void meubler_bureaux(unsigned graine) {
+    for (int z = 1; z < carteH - 1; z++)
+        for (int x = 1; x < carteW - 1; x++) {
+            if (grille[z][x] || zone[z][x] || occupe[z][x] || case_reservee(x, z)) continue;
+            unsigned h = hash32((unsigned)(x * 7349 + z * 92821) ^ graine);
+            if (h % 100 < 6) add_meuble(MB_PAPIERS, x + 0.2f + (h >> 8) % 60 / 100.0f, z + 0.2f + (h >> 14) % 60 / 100.0f, (h >> 20) % 628 / 100.0f, -1);
+            if ((h >> 7) % 100 >= 11) continue;
+            int mur = -1, nmur = 0;
+            for (int k = 0; k < 4; k++) if (cell_mur(x + cotes[k][0], z + cotes[k][1])) { mur = k; nmur++; }
+            if (nmur != 1) continue;
+            int o = mur ^ 1, p1 = mur < 2 ? 2 : 0, p2 = p1 + 1;
+            int ox = cotes[o][0], oz = cotes[o][1];
+            if (!case_libre_vide(x + ox, z + oz) || !case_libre_vide(x + cotes[p1][0], z + cotes[p1][1]) || !case_libre_vide(x + cotes[p2][0], z + cotes[p2][1]) ||
+                !case_libre_vide(x + ox + cotes[p1][0], z + oz + cotes[p1][1]) || !case_libre_vide(x + ox + cotes[p2][0], z + oz + cotes[p2][1])) continue;
+            V3 w = v3((float)cotes[mur][0], 0, (float)cotes[mur][1]);   /* vers le mur */
+            float yaw = atan2f(-w.x, w.z);                /* le devant regarde la salle */
+            int r = (int)((h >> 16) % 100);
+            int type = r < 45 ? MB_BUREAU : r < 65 ? MB_CLASSEUR : r < 82 ? MB_FONTAINE : MB_PLANTE;
+            float prof = meubleDef[type].hz;
+            add_meuble(type, x + 0.5f + w.x * (0.47f - prof), z + 0.5f + w.z * (0.47f - prof), yaw, -1);
+            if (type == MB_BUREAU)                        /* la chaise, devant, un peu de travers */
+                add_meuble(MB_CHAISE_BUREAU, x + 0.5f - w.x * 0.35f, z + 0.5f - w.z * 0.35f, yaw + PI + ((h >> 24) % 60 - 30) / 60.0f, -1);
+        }
+}
+
+/* cameras de surveillance (s'il y a une salle des cameras) : jusqu'a 4 cases ordinaires, loin les unes des autres,
+   accrochees au plafond, tournees vers la plus longue ouverture */
+static void placer_cameras(void) {
+    int sc = -1;
+    for (int i = 0; i < npieces; i++) if (pieces[i].zone == ZONE_CAMERAS) sc = i;
+    if (sc < 0) return;
+    V3 salle = v3(pieces[sc].x0 + pieces[sc].iw * 0.5f, 0, pieces[sc].z0 + pieces[sc].ih * 0.5f);
+    for (int n = 0; n < MAXCAMERAS; n++) {
+        float best = -1; int bx = -1, bz = -1;
+        for (int z = 1; z < carteH - 1; z++)
+            for (int x = 1; x < carteW - 1; x++) {
+                if (grille[z][x] || zone[z][x] || occupe[z][x] || distCase[z][x] < 0) continue;
+                V3 c = v3(x + 0.5f, 0, z + 0.5f);
+                float dmin = dist_xz_carte(c, salle) * 0.6f;
+                for (int i = 0; i < ncameras; i++) dmin = fminf(dmin, dist_xz_carte(c, cameras[i].pos));
+                dmin += (hash32((unsigned)(x * 31 + z * 17 + n)) % 100) * 0.01f;
+                if (dmin > best) { best = dmin; bx = x; bz = z; }
+            }
+        if (bx < 0) break;
+        float bl = -1, yaw = 0;
+        for (int k = 0; k < 4; k++) {
+            float l = ray_grille(bx + 0.5f, bz + 0.5f, (float)cotes[k][0], (float)cotes[k][1], 40);
+            if (l > bl) { bl = l; yaw = atan2f((float)cotes[k][0], -(float)cotes[k][1]); }
+        }
+        V3 av = v3(sinf(yaw), 0, -cosf(yaw));             /* la camera est dans le coin, dos au mur */
+        V3 p = v3(bx + 0.5f - av.x * 0.4f, HAUT_PLAFOND - 0.25f, bz + 0.5f - av.z * 0.4f);
+        cameras[ncameras].pos = p; cameras[ncameras].yaw = yaw; cameras[ncameras].pitch = -0.32f;
+        ncameras++;
+        add_meuble(MB_CAMERA, p.x, p.z, yaw, -1);
     }
 }

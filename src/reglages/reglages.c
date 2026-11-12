@@ -58,12 +58,12 @@
 #define LM_ATLAS          1024    /* cote de l'atlas des lightmaps */
 #define NEON_I            2.3f    /* puissance d'un neon (eclairement direct) */
 #define NEON_PORTEE       7.5f    /* au-dela, un neon n'eclaire plus (precalcul) */
-#define LAMPE_MEUBLE_I    0.95f   /* lampe de chevet, veilleuse, lanterne : lumiere chaude */
-#define LAMPE_MEUBLE_PORTEE 4.5f
+#define LAMPE_MEUBLE_I    1.7f    /* lampe de chevet, veilleuse, lanterne : lumiere chaude */
+#define LAMPE_MEUBLE_PORTEE 6.0f
 #define REBOND_K          0.30f   /* lumiere renvoyee par les murs jaunes (rebond approche) */
-#define AMBIANCE_MIN      0.012f  /* le noir n'est jamais tout a fait noir */
+#define AMBIANCE_MIN      0.022f  /* le noir n'est jamais tout a fait noir */
 #define FOG_DENSITE       0.22f   /* brouillard du niveau 1 (les suivants sont plus denses) */
-#define CARTE_GEN_MIN     36      /* niveaux generes : cote de la carte au niveau 2 */
+#define CARTE_GEN_MIN     26      /* niveaux generes : cote de la carte au niveau 2 (+3 par niveau, 46 au plus) */
 
 /* --- le Rodeur (monstre aveugle, chasse au bruit) --- */
 #define RODEUR_ERRE_V     1.35f   /* vitesse quand il erre */
@@ -123,6 +123,11 @@
 #define FAUX_BRUIT_MIN    40.0f   /* bruits lourds derriere toi (faux departs) */
 #define FAUX_BRUIT_MAX    90.0f
 #define COEUR_DIST        13.0f   /* battements de coeur quand le monstre est plus pres que ca */
+
+/* --- mini-carte --- */
+#define MINICARTE_VUE     7       /* on decouvre les cases en vue a moins de tant de cases */
+#define MINICARTE_TAILLE  170.0f  /* cote (pixels) */
+#define MINICARTE_CASES   26      /* cases visibles de cote */
 
 /* --- objectif --- */
 #define FUSIBLES_N        3       /* fusibles a trouver par niveau */

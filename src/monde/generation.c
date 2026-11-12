@@ -68,7 +68,9 @@ static void generer_niveau(unsigned graine, int w, int h) {
         else for (int i = 0; i < np; i++) grille[pose[i][1]][pose[i][0]] = 0;   /* il coupait le niveau : retire */
     }
     placer_pieces(genZones, genNZones);                   /* chambres, salles de bain... (recalcule distCase) */
+    meubler_bureaux(graine);                              /* bureaux, classeurs, fontaines, papiers */
     carte_distances(sx, sz);
+    placer_cameras();
 
     for (int k = 0; k < 2 + irand(3); k++) {              /* zones noires (sans neon) */
         int rw = 4 + irand(8), rh = 4 + irand(8), x = irand(w - rw), z = irand(h - rh);

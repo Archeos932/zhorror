@@ -90,6 +90,7 @@ static void draw_settings(void) {
         y += 40;
     }
     interrupteur(cx, y, "FLASHS ET IMAGES SUBLIMINALES", &flashsOn); y += 46;
+    interrupteur(cx, y, "MINI-CARTE", &miniCarte); y += 46;
     interrupteur(cx, y, "VERIFIER LES MISES A JOUR", &updCheck); y += 56;
     button(cx, y, "RETOUR", ACT_FERMER_PARAM);
 }

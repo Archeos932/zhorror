@@ -42,9 +42,9 @@ static int ndecals;
    En plus des murs : plinthes et corniches, linteaux au-dessus des passages etroits, cloisons basses, dalles de
    plafond arrachees (un trou noir), et la liste des prises / grilles. */
 /* materiaux de chaque zone : sol, murs, plafond */
-static const int matSol[ZONE_N] = { MAT_MOQUETTE, MAT_MOQ_CHAMBRE, MAT_CARRELAGE, MAT_MOQ_CHAMBRE, MAT_LINO, MAT_BETON, MAT_BETON };
-static const int matMur[ZONE_N] = { MAT_PAPIER, MAT_FLEURI, MAT_FAIENCE, MAT_ENFANT, MAT_FAIENCE, MAT_BETON, MAT_BETON };
-static const int matPlaf[ZONE_N] = { MAT_PLAFOND, MAT_PLAFOND, MAT_PLAFOND, MAT_PLAFOND, MAT_PLAFOND, MAT_BETON, MAT_BETON };
+static const int matSol[ZONE_N] = { MAT_MOQUETTE, MAT_MOQ_CHAMBRE, MAT_CARRELAGE, MAT_MOQ_CHAMBRE, MAT_LINO, MAT_BETON, MAT_BETON, MAT_LINO };
+static const int matMur[ZONE_N] = { MAT_PAPIER, MAT_FLEURI, MAT_FAIENCE, MAT_ENFANT, MAT_FAIENCE, MAT_BETON, MAT_BETON, MAT_CLOISON };
+static const int matPlaf[ZONE_N] = { MAT_PLAFOND, MAT_PLAFOND, MAT_PLAFOND, MAT_PLAFOND, MAT_PLAFOND, MAT_BETON, MAT_BETON, MAT_PLAFOND };
 
 static void construire_faces(void) {
     nfaces = 0; ndecals = 0;

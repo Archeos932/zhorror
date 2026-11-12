@@ -311,7 +311,7 @@ static int run_tests(const char *path) {
         int libres, n = carte_atteignables(&libres), linteaux = 0, plinthes = 0, cloisons = 0;
         check("niveau 1 : toutes les cases libres atteignables", (float)(libres - n), 0, 0);
         check("niveau 1 : 3 fusibles, 1 machoire, l'ascenseur", (float)(nfus * 100 + npieges * 10 + asc.actif), 311, 311);
-        check("niveau 1 : une chambre et une salle de bain", (float)(npieces == 2 && pieces[0].zone == ZONE_CHAMBRE && pieces[1].zone == ZONE_SDB), 1, 1);
+        check("niveau 1 : chambre, salle de bain, salle des cameras", (float)(npieces == 3 && pieces[0].zone == ZONE_CHAMBRE && pieces[1].zone == ZONE_SDB && pieces[2].zone == ZONE_CAMERAS), 1, 1);
         for (int i = 0; i < nfaces; i++) {
             if (faces[i].mat == MAT_PLINTHE) plinthes++;
             if (faces[i].mat == MAT_CLOISON) cloisons++;
@@ -358,7 +358,7 @@ static int run_tests(const char *path) {
     {
         reset_game(); cartonActif = 0; monstres_reset();
         charger_vitrine(); monde_reconstruire(); player_reset(); nfus = 0;
-        check("pieces : les six pieces sont creusees", (float)npieces, 6, 6);
+        check("pieces : les sept pieces sont creusees", (float)npieces, 7, 7);
         int portesOk = 1;
         for (int i = 0; i < npieces; i++) {               /* une seule ouverture dans la bordure */
             const Piece *p = &pieces[i]; int ouv = 0;
@@ -471,9 +471,25 @@ static int run_tests(const char *path) {
             check("multi : la cassette prise chez l'hote", (float)meubles[cas].etat, 1, 1);
             netMode = NET_OFF; monSlot = 0; cartonActif = 0; msgT = 0;
         }
-        /* les niveaux generes ont leurs pieces */
+        /* les niveaux generes ont leurs pieces, leurs meubles de bureau, leurs cameras */
         carteTest = 0; niveau_charger_ex(3, 0); carteTest = 1;
-        check("pieces : niveau 3 genere, 2 a 4 pieces dont le campement", (float)npieces, 3, 4);
+        check("pieces : niveau 3 genere, campement et salle des cameras", (float)npieces, 4, 5);
+        check("niveaux : plus petits (cote du niveau 3)", (float)carteW, 25, CARTE_GEN_MIN + 3);
+        {
+            int bureaux = 0, cams = 0;
+            for (int i = 0; i < nmeubles; i++) { bureaux += meubles[i].type == MB_BUREAU || meubles[i].type == MB_CLASSEUR || meubles[i].type == MB_FONTAINE || meubles[i].type == MB_PLANTE; cams += meubles[i].type == MB_CAMERA; }
+            check("bureaux : des meubles dans les zones ordinaires", (float)bureaux, 3, 999);
+            check("cameras : posees dans le niveau", (float)(ncameras >= 2 && cams == ncameras), 1, 1);
+            int libres, n = carte_atteignables(&libres);
+            check("bureaux : les meubles ne coupent aucun passage", (float)(libres - n), 0, 0);
+        }
+        {                                                 /* mini-carte : marcher decouvre */
+            int avant = 0, apres = 0;
+            for (int z = 0; z < carteH; z++) for (int x = 0; x < carteW; x++) avant += decouvert[z][x];
+            test_isoler(); test_run(120 * 3, A_AVANCER, -1);
+            for (int z = 0; z < carteH; z++) for (int x = 0; x < carteW; x++) apres += decouvert[z][x];
+            check("mini-carte : marcher decouvre des cases", (float)(apres - avant), 5, 9999);
+        }
     }
 
     /* micro : chuchoter passe, crier attire */

@@ -240,6 +240,7 @@ static void carte_collision(float *x, float *z, float r) { carte_collision_ex(x,
 /* distances en cases depuis (sx, sz) par les cases libres (parcours en largeur) ; -1 = inaccessible.
    Sert aux tests, a la generation (placer fusibles et ascenseur loin) et aux chemins du monstre. */
 static short distCase[CARTE_MAX][CARTE_MAX];
+static int distSansMeubles;                               /* connexite des niveaux : seuls les murs comptent */
 static void carte_distances_dans(short d[CARTE_MAX][CARTE_MAX], int sx, int sz) {
     static short file[CARTE_MAX * CARTE_MAX][2];
     for (int z = 0; z < CARTE_MAX; z++) for (int x = 0; x < CARTE_MAX; x++) d[z][x] = -1;
@@ -250,7 +251,7 @@ static void carte_distances_dans(short d[CARTE_MAX][CARTE_MAX], int sx, int sz) 
         int x = file[a][0], z = file[a][1]; a++;
         for (int k = 0; k < 4; k++) {
             int nx = x + cotes[k][0], nz = z + cotes[k][1];
-            if (cell_mur(nx, nz) || occupe[nz][nx] || d[nz][nx] >= 0) continue;   /* les meubles encombrent */
+            if (cell_mur(nx, nz) || (occupe[nz][nx] && !distSansMeubles) || d[nz][nx] >= 0) continue;   /* les meubles encombrent */
             d[nz][nx] = (short)(d[z][x] + 1);
             file[b][0] = (short)nx; file[b][1] = (short)nz; b++;
         }
@@ -262,8 +263,11 @@ static void carte_distances(int sx, int sz) { carte_distances_dans(distCase, sx,
 static int carte_atteignables(int *libres) {
     int n = 0;
     *libres = 0;
+    distSansMeubles = 1;                                  /* un meuble peut coincer une case, pas couper un passage */
     carte_distances((int)carteDepart.x, (int)carteDepart.z);
+    distSansMeubles = 0;
     for (int z = 0; z < carteH; z++)
-        for (int x = 0; x < carteW; x++) { *libres += !grille[z][x] && !occupe[z][x]; n += distCase[z][x] >= 0; }
+        for (int x = 0; x < carteW; x++) { *libres += !grille[z][x]; n += distCase[z][x] >= 0; }
+    carte_distances((int)carteDepart.x, (int)carteDepart.z);   /* distCase redevient celle des chemins (avec meubles) */
     return n;
 }

@@ -9,8 +9,8 @@ static void cfg_save(void) {
     FILE *f = fopen(cfgPath, "w");
     if (!f) return;
     fprintf(f, "volume=%.2f\nmusique=%.2f\nsensibilite=%.5f\ninverser_y=%d\nmicro=%d\nmicro_sensibilite=%.2f\n"
-               "flashs=%d\nplein_ecran=%d\nmise_a_jour_auto=%d\nnom=%s\n",
-            masterVol, ambVol, sens, invertY, micOn, micGain, flashsOn, fullscreen, updCheck, monNom);
+               "flashs=%d\nplein_ecran=%d\nmise_a_jour_auto=%d\nnom=%s\nmini_carte=%d\n",
+            masterVol, ambVol, sens, invertY, micOn, micGain, flashsOn, fullscreen, updCheck, monNom, miniCarte);
     if (strcmp(serveur, SERVEUR_DEFAUT)) fprintf(f, "serveur=%s\n", serveur);   /* le defaut peut changer avec une mise a jour */
     fclose(f);
 }
@@ -36,6 +36,7 @@ static int cfg_load(void) {
         else if (!strcmp(l, "flashs")) flashsOn = v != 0;
         else if (!strcmp(l, "plein_ecran")) pe = v != 0;
         else if (!strcmp(l, "mise_a_jour_auto")) updCheck = v != 0;
+        else if (!strcmp(l, "mini_carte")) miniCarte = v != 0;
         else if (!strcmp(l, "nom") || !strcmp(l, "serveur")) {
             char *e = eq + 1;
             e[strcspn(e, "\r\n ")] = 0;

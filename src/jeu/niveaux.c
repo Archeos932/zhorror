@@ -37,12 +37,12 @@ static int niveau_monstres(int n, int types[3]) {
 static void niveau_charger_ex(int n, int avecCarton) {
     niveauNum = n;
     if (n <= 1) {
-        niveauMortsPM = 400; niveauFousPM = 80;
+        niveauMortsPM = 300; niveauFousPM = 80;
         charger_niveau_essai();
         niveauFog = FOG_DENSITE;
     } else {
         int k = n - 2;
-        niveauMortsPM = 480 + 40 * k < 650 ? 480 + 40 * k : 650;
+        niveauMortsPM = 340 + 40 * k < 540 ? 340 + 40 * k : 540;
         niveauFousPM = 80;
         genEau = n == 3 ? 16 : 3 + k;                     /* le sous-sol humide est inonde */
         genVerre = 3 + k; genMachoires = k < 2 ? 1 : k; genAlarmes = k < 2 ? 0 : k / 2;   /* les premiers restent simples */
@@ -53,8 +53,9 @@ static void niveau_charger_ex(int n, int avecCarton) {
             genNZones = 0;
             for (int i = 0; i < nz; i++) genZones[genNZones++] = pool[(debut + i * 2) % 5];
             if (n >= 2 && n <= 6) genZones[genNZones++] = ZONE_NOE;   /* une cassette par niveau de l'histoire */
+            genZones[genNZones++] = ZONE_CAMERAS;         /* toujours une salle des cameras */
         }
-        int taille = CARTE_GEN_MIN - 4 + 6 * k < 84 ? CARTE_GEN_MIN - 4 + 6 * k : 84;
+        int taille = CARTE_GEN_MIN + 3 * k < 46 ? CARTE_GEN_MIN + 3 * k : 46;   /* petits : on s'y perd moins, on s'y croise plus */
         generer_niveau(1000u + (unsigned)n * 7919u, taille, taille);
         niveauFog = FOG_DENSITE * (1.0f + 0.1f * (k + 1));
     }

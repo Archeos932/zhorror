@@ -86,8 +86,10 @@ static void charger_vitrine(void) {
     carte_vider(44, 26);
     creuser(1, 12, 42, 13);
     carteDepart = v3(2.5f, 0, 12.5f);
-    int zs[6] = { ZONE_CHAMBRE, ZONE_SDB, ZONE_ENFANT, ZONE_CUISINE, ZONE_RESERVE, ZONE_NOE };
-    placer_pieces(zs, 6);
+    int zs[7] = { ZONE_CHAMBRE, ZONE_SDB, ZONE_ENFANT, ZONE_CUISINE, ZONE_RESERVE, ZONE_NOE, ZONE_CAMERAS };
+    placer_pieces(zs, 7);
+    carte_distances((int)carteDepart.x, (int)carteDepart.z);
+    placer_cameras();
     placer_neons();
     rng = keep;
 }
@@ -100,8 +102,11 @@ static void charger_niveau_essai(void) {
         carte_charger(niveauUn, NIVEAU_UN_N);
         unsigned keep = rng;                              /* une chambre et une salle de bain, creusees en bas */
         rng = 2003;
-        int zs[2] = { ZONE_CHAMBRE, ZONE_SDB };
-        placer_pieces(zs, 2);
+        int zs[3] = { ZONE_CHAMBRE, ZONE_SDB, ZONE_CAMERAS };
+        placer_pieces(zs, 3);
+        meubler_bureaux(2003);
+        carte_distances((int)carteDepart.x, (int)carteDepart.z);
+        placer_cameras();
         rng = keep;
     }
 }

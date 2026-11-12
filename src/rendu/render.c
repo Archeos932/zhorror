@@ -1,6 +1,7 @@
 /* BOURDONNEMENT - render() : l'image complete
    Morceau de main.c : inclus dans l'ordre, ne se compile pas seul (voir main.c). */
 
+
 /* assombrit les bords de l'ecran (vignette), plus fort avec la tension et a chaque battement */
 static void vignette(float force) {
     float w = (float)winW, h = (float)winH, b = w * 0.24f;
@@ -58,12 +59,69 @@ static void draw_noms(void) {
     }
 }
 
+/* mini-carte (en haut a gauche) : seulement ce que l'on a deja vu ; jamais les monstres */
+static const float couleurZone[ZONE_N][3] = { { 0.55f, 0.5f, 0.3f }, { 0.5f, 0.18f, 0.18f }, { 0.55f, 0.6f, 0.62f }, { 0.35f, 0.45f, 0.6f },
+                                              { 0.6f, 0.58f, 0.45f }, { 0.4f, 0.4f, 0.4f }, { 0.35f, 0.42f, 0.3f }, { 0.25f, 0.5f, 0.35f } };
+static void draw_minicarte(float t) {
+    float S = MINICARTE_TAILLE, x0 = 20, y0 = 60, k = S / MINICARTE_CASES;
+    int n = MINICARTE_CASES / 2, px = (int)floorf(P.pos.x), pz = (int)floorf(P.pos.z);
+    float d;
+    int brouille = mon_proche(&d) >= 0 && d < 7 && (hash32((unsigned)(t * 12)) & 3) == 0;   /* il est la : l'image saute */
+    rect(x0 - 3, y0 - 3, S + 6, S + 6, 0, 0, 0, 0.55f);
+    rect(x0 - 3, y0 - 3, S + 6, 2, 0.6f, 0.55f, 0.4f, 0.5f);
+    float ox = P.pos.x - px, oz = P.pos.z - pz;           /* la carte suit le joueur en douceur */
+    glBegin(GL_QUADS);
+    for (int dz = -n; dz <= n; dz++)
+        for (int dx = -n; dx <= n; dx++) {
+            int x = px + dx, z = pz + dz;
+            if (x < 0 || z < 0 || x >= carteW || z >= carteH) continue;
+            int vu = decouvert[z][x];
+            if (!vu && cell_mur(x, z))                    /* un mur se dessine si une case voisine a ete vue */
+                for (int c = 0; c < 4 && !vu; c++) { int nx = x + cotes[c][0], nz = z + cotes[c][1]; vu = nx >= 0 && nz >= 0 && nx < carteW && nz < carteH && decouvert[nz][nx]; }
+            if (!vu) continue;
+            float sx = x0 + S * 0.5f + (dx - ox) * k, sy = y0 + S * 0.5f + (dz - oz) * k;
+            if (sx < x0 - 0.01f || sy < y0 - 0.01f || sx + k > x0 + S + 0.01f || sy + k > y0 + S + 0.01f) continue;
+            const float *c = couleurZone[zone[z][x]];
+            float a = 0.55f;
+            if (cell_opaque(x, z)) glColor4f(0.12f, 0.1f, 0.07f, 0.9f);
+            else if (cell_muret(x, z)) glColor4f(0.3f, 0.32f, 0.35f, 0.9f);
+            else if (sol[z][x] == SOL_EAU) glColor4f(0.15f, 0.2f, 0.28f, a + 0.2f);
+            else glColor4f(c[0], c[1], c[2], a);
+            if (brouille) { float g = (hash32((unsigned)(x * 7 + z * 13) + (unsigned)(t * 30)) & 255) / 255.0f; glColor4f(g, g, g, 0.5f); }
+            glVertex2f(sx, sy); glVertex2f(sx + k, sy); glVertex2f(sx + k, sy + k); glVertex2f(sx, sy + k);
+        }
+    glEnd();
+    float cx = x0 + S * 0.5f, cy = y0 + S * 0.5f;
+    for (int i = 0; i < nfus; i++) {                      /* fusibles deja vus */
+        if (fus[i].pris || !decouvert[(int)fus[i].pos.z][(int)fus[i].pos.x]) continue;
+        float sx = cx + (fus[i].pos.x - P.pos.x) * k, sy = cy + (fus[i].pos.z - P.pos.z) * k;
+        if (fabsf(sx - cx) < S * 0.5f - 3 && fabsf(sy - cy) < S * 0.5f - 3) rect(sx - 3, sy - 3, 6, 6, 0.95f, 0.15f, 0.1f, fmodf(t, 1.0f) < 0.6f ? 1.0f : 0.5f);
+    }
+    if (asc.actif && decouvert[asc.gz][asc.gx]) {         /* l'ascenseur : rouge sans courant, vert avec */
+        float sx = cx + (asc.gx + 0.5f - P.pos.x) * k, sy = cy + (asc.gz + 0.5f - P.pos.z) * k;
+        if (fabsf(sx - cx) < S * 0.5f - 4 && fabsf(sy - cy) < S * 0.5f - 4) rect(sx - 4, sy - 4, 8, 8, asc.alimente ? 0.2f : 0.9f, asc.alimente ? 0.9f : 0.2f, 0.2f, 1);
+    }
+    for (int j = 0; j < MAXP; j++) {                      /* les autres joueurs */
+        if (netMode == NET_OFF || j == monSlot || !JP[j].actif || (JP[j].st.flags & JF_MORT)) continue;
+        float sx = cx + (JP[j].disp.x - P.pos.x) * k, sy = cy + (JP[j].disp.z - P.pos.z) * k;
+        if (fabsf(sx - cx) < S * 0.5f - 3 && fabsf(sy - cy) < S * 0.5f - 3) rect(sx - 3, sy - 3, 6, 6, couleursJ[j][0] + 0.4f, couleursJ[j][1] + 0.4f, couleursJ[j][2] + 0.4f, 1);
+    }
+    V3 f = view_dir(P.yaw, 0), r = v3(-f.z, 0, f.x);      /* toi : une fleche */
+    glColor4f(1, 0.95f, 0.75f, 1);
+    glBegin(GL_TRIANGLES);
+    glVertex2f(cx + f.x * 7, cy + f.z * 7);
+    glVertex2f(cx - f.x * 4 + r.x * 4, cy - f.z * 4 + r.z * 4);
+    glVertex2f(cx - f.x * 4 - r.x * 4, cy - f.z * 4 - r.z * 4);
+    glEnd();
+}
+
 static void draw_hud(float t) {
     char b[96];
     draw_noms();
+    if (miniCarte) draw_minicarte(t);
     if (fusPris < nfus) snprintf(b, sizeof b, "FUSIBLES  %d / %d", fusPris, nfus);   /* objectif, discret */
     else snprintf(b, sizeof b, "L'ASCENSEUR");
-    text(0, 28, 44, b, 0.75f, 0.72f, 0.6f, 0.5f);
+    text(0, miniCarte ? 20.0f : 28.0f, miniCarte ? 60 + MINICARTE_TAILLE + 22 : 44, b, 0.75f, 0.72f, 0.6f, 0.6f);
     /* coeur : BPM facon camescope, carre rouge qui bat */
     float pp = coeurPouls;
     rect(winW - 160.0f - pp * 2, 36.0f - pp * 2, 12 + pp * 4, 12 + pp * 4, 0.8f, 0.05f, 0.05f, 0.5f + 0.5f * pp);
@@ -130,8 +188,8 @@ static void draw_carton(float t) {
 }
 
 static void render(float alpha, float frameDt) {
-    (void)frameDt;
     float t = appState == APP_GAME ? gameT : (float)nowT;
+    cctv_maj(t, frameDt);                                 /* les ecrans de la salle des cameras (seulement si on est pres) */
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 

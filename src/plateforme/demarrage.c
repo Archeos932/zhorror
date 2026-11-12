@@ -179,6 +179,14 @@ static int bourdon_main(const char *cmd) {
         else if (strstr(shotPath, "hall")) {             /* le vrai niveau 1, au depart, puis l'open space */
             if (strstr(shotPath, "hall2")) { P.pos = P.prevPos = v3(9.5f, 0, 5.5f); P.yaw = P.lampeYaw = PI / 2 + 0.15f; }
             if (strstr(shotPath, "hall3")) { P.pos = P.prevPos = v3(2.5f, 0, 14.5f); P.yaw = P.lampeYaw = PI / 2; }
+            if (strstr(shotPath, "hallpiece") && npieces > 0) {   /* a la porte de la chambre du niveau 1 */
+                Piece *pc = &pieces[strstr(shotPath, "hallpiece2") ? 2 : 0];
+                V3 c = v3(pc->x0 + pc->iw * 0.5f, 0, pc->z0 + pc->ih * 0.5f), pt = v3(pc->porteX + 0.5f, 0, pc->porteZ + 0.5f);
+                V3 d = vnorm(vsub(c, pt));
+                P.pos = P.prevPos = vadd(pt, vmul(d, 0.7f)); P.yaw = P.lampeYaw = atan2f(d.x, -d.z); P.pitch = P.lampePitch = -0.12f;
+                monstres_reset();
+                for (int k = 0; k < 6; k++) render(1, 0.016f);   /* les ecrans de la salle des cameras */
+            }
         }
         else if (strstr(shotPath, "chambre") || strstr(shotPath, "sdb") || strstr(shotPath, "enfant") || strstr(shotPath, "cuisine") ||
                  strstr(shotPath, "reserve") || strstr(shotPath, "noe")) {   /* vitrine des pieces : a la porte, on regarde dedans */
@@ -193,6 +201,23 @@ static int bourdon_main(const char *cmd) {
                 P.pos = P.prevPos = vadd(pt, vmul(d, 0.7f)); P.yaw = P.lampeYaw = atan2f(d.x, -d.z); P.pitch = P.lampePitch = -0.12f;
             }
             monde_reconstruire();
+        }
+        else if (strstr(shotPath, "cameras")) {           /* salle des cameras de la vitrine : les ecrans en direct */
+            charger_vitrine(); monstres_reset(); nfus = 0; monde_reconstruire();
+            int ip = piece_de_zone(ZONE_CAMERAS);
+            if (ip >= 0) {
+                Piece *pc = &pieces[ip];
+                for (int i = 0; i < nmeubles; i++) if (meubles[i].type == MB_ECRANS) {
+                    V3 av = view_dir(meubles[i].yaw, 0);
+                    P.pos = P.prevPos = v3(meubles[i].x + av.x * 1.6f, 0, meubles[i].z + av.z * 1.6f);
+                    P.yaw = P.lampeYaw = meubles[i].yaw + PI; P.pitch = P.lampePitch = -0.05f; P.lampe = 0;
+                }
+                (void)pc;
+            }
+            monstres_reset(); mon_ajouter(MON_RODEUR, 1);   /* il traine devant une camera */
+            mon[0].pos = mon[0].prevPos = v3(cameras[1].pos.x + sinf(cameras[1].yaw) * 3.5f, 0, cameras[1].pos.z - cosf(cameras[1].yaw) * 3.5f);
+            mon[0].yaw = cameras[1].yaw + PI;
+                for (int k = 0; k < 6; k++) render(1, 0.016f);
         }
         else if (strstr(shotPath, "armoire") || strstr(shotPath, "souslit")) {   /* cachettes de la chambre (vitrine) */
             charger_vitrine(); monstres_reset(); nfus = 0; monde_reconstruire();
@@ -222,6 +247,7 @@ static int bourdon_main(const char *cmd) {
         else if (strstr(shotPath, "enligne")) { appState = APP_EN_LIGNE; nowT = 20; salEtat = SAL_DANS; salHote = 1; snprintf(salCode, sizeof salCode, "HJAK");
             snprintf(JP[0].nom, 16, "Mathis"); snprintf(JP[1].nom, 16, "Ines"); snprintf(JP[2].nom, 16, "Sami"); }
         else if (strstr(shotPath, "mort")) { screamType = MON_RAMPANTE; mortT = 2; P.dead = 1; }
+        minicarte_decouvrir();
         render(1, 0.016f);
         save_bmp(shotPath);
 #ifndef _WIN32

@@ -22,5 +22,6 @@ static double statutT;
 static void set_status(const char *s) { snprintf(statut, sizeof statut, "%s", s); statutT = nowT; }
 
 static int settingsOpen;                                  /* ecran PARAMETRES ouvert (menu ou pause) */
+static int miniCarte = 1;                                 /* mini-carte en haut a gauche */
 static int flashsOn = 1;                                  /* flashs et images subliminales (photosensibilite) */
 static char cfgPath[1024];                                /* bourdonnement.ini */

@@ -8,13 +8,15 @@
 
 #define CARTE_MAX 96                                      /* cote maximal d'une carte (cases) */
 
-enum { ZONE_BUREAU, ZONE_CHAMBRE, ZONE_SDB, ZONE_ENFANT, ZONE_CUISINE, ZONE_RESERVE, ZONE_NOE, ZONE_N };
+enum { ZONE_BUREAU, ZONE_CHAMBRE, ZONE_SDB, ZONE_ENFANT, ZONE_CUISINE, ZONE_RESERVE, ZONE_NOE, ZONE_CAMERAS, ZONE_N };
 static unsigned char zone[CARTE_MAX][CARTE_MAX];      /* zone de chaque case (sol, murs, ambiance) */
 static unsigned char occupe[CARTE_MAX][CARTE_MAX];    /* case encombree par un meuble (chemins des monstres) */
+static unsigned char decouvert[CARTE_MAX][CARTE_MAX]; /* mini-carte : cases deja apercues par le joueur local */
 
 enum { MB_LIT, MB_ARMOIRE, MB_CHEVET, MB_LAMPE, MB_TELE, MB_CHAISE, MB_TABLE, MB_LAVABO, MB_BAIGNOIRE, MB_TOILETTES,
        MB_PETIT_LIT, MB_JOUETS, MB_BOITE_MUSIQUE, MB_FRIGO, MB_COMPTOIR, MB_RAYONNAGE, MB_CARTONS, MB_MANNEQUIN,
-       MB_SAC_COUCHAGE, MB_LANTERNE, MB_CASSETTE, MB_TYPES };
+       MB_SAC_COUCHAGE, MB_LANTERNE, MB_CASSETTE,
+       MB_BUREAU, MB_CHAISE_BUREAU, MB_CLASSEUR, MB_FONTAINE, MB_PAPIERS, MB_PLANTE, MB_ECRANS, MB_CAMERA, MB_TYPES };
 typedef struct { float hx, hz, h; int bloque, cachette; } MeubleDef;   /* demi-largeur (x local), demi-profondeur (z local) */
 static const MeubleDef meubleDef[MB_TYPES] = {
     /* LIT          */ { 0.70f, 1.00f, 0.55f, 1, 1 },
@@ -38,7 +40,21 @@ static const MeubleDef meubleDef[MB_TYPES] = {
     /* SAC_COUCHAGE */ { 0.40f, 0.95f, 0.15f, 0, 0 },
     /* LANTERNE     */ { 0.08f, 0.08f, 0.30f, 0, 0 },
     /* CASSETTE     */ { 0.10f, 0.06f, 0.04f, 0, 0 },
+    /* BUREAU       */ { 0.60f, 0.35f, 0.75f, 1, 0 },
+    /* CHAISE_BUREAU*/ { 0.25f, 0.25f, 0.95f, 0, 0 },   /* on la pousse : pas bloquante */
+    /* CLASSEUR     */ { 0.25f, 0.30f, 1.30f, 1, 0 },
+    /* FONTAINE     */ { 0.18f, 0.18f, 1.35f, 1, 0 },
+    /* PAPIERS      */ { 0.40f, 0.40f, 0.01f, 0, 0 },
+    /* PLANTE       */ { 0.20f, 0.20f, 1.00f, 1, 0 },
+    /* ECRANS       */ { 0.80f, 0.40f, 1.25f, 1, 0 },   /* le mur d'ecrans de la salle des cameras */
+    /* CAMERA       */ { 0.08f, 0.08f, 0.10f, 0, 0 },   /* camera de surveillance, au plafond */
 };
+
+/* cameras de surveillance : ce que montrent les ecrans de la salle des cameras (rendu/meubles_rendu.c) */
+typedef struct { V3 pos; float yaw, pitch; } CameraSurv;
+#define MAXCAMERAS 4
+static CameraSurv cameras[MAXCAMERAS];
+static int ncameras;
 
 typedef struct {
     int type, piece;
@@ -58,9 +74,10 @@ static Piece pieces[MAXPIECES];
 static int npieces;
 
 static void meubles_vider(void) {
-    nmeubles = 0; npieces = 0;
+    nmeubles = 0; npieces = 0; ncameras = 0;
     memset(zone, 0, sizeof zone);
     memset(occupe, 0, sizeof occupe);
+    memset(decouvert, 0, sizeof decouvert);
 }
 
 /* emprise au sol (demi-tailles dans le monde) : la rotation de 90 degres echange x et z */

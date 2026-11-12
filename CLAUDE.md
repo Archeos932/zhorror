@@ -90,6 +90,12 @@ Le propriétaire est francophone : réponses, commentaires et docs **en françai
   état des meubles vivants dans `Snap.meubleEtat` (`meuble_vivant`, même ordre chez tous). Cachettes : `P.cache`
   (1 sous un lit, 2 armoire), `JF_CACHE`, les monstres ignorent une cible cachée. Vitrine des 6 pièces :
   `charger_vitrine()` (`niveau_essai.c`) pour les tests et les captures `chambre`, `sdb`, `enfant`, `cuisine`,
-  `reserve`, `noe`, `armoire`, `souslit`. Cassettes : `CASSETTES` dans `outils/textes.py`.
+  `reserve`, `noe`, `armoire`, `souslit`, `cameras` (+ `hallpiece`, `hallpiece2` : pièces du vrai niveau 1).
+  Cassettes : `CASSETTES` dans `outils/textes.py`. Meubles de bureau partout (`meubler_bureaux` : seulement sur une
+  case qui touche un mur et ne coupe aucun passage). Salle des caméras (`ZONE_CAMERAS`, à chaque niveau) : `cameras[]`
+  posées par `placer_cameras`, vues rendues en direct dans `texCam` par `cctv_maj` (une par image, si l'on est près).
+  Connexité des niveaux : `carte_atteignables` ignore les meubles (`distSansMeubles`) ; les chemins des monstres non.
+- **Mini-carte** (`draw_minicarte`, render.c) : `decouvert[][]` rempli par `minicarte_decouvrir` (boucle.c) ;
+  option `mini_carte=` / PARAMÈTRES ; jamais les monstres.
 - Cartes faites à la main (`niveau_essai.c`) : `niveauUn` (le vrai niveau 1) et `niveauTest` (tests et captures,
   `carteTest = 1` : ses coordonnées sont utilisées partout dans les tests ; capture `hall*` = niveau 1).

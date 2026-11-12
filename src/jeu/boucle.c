@@ -4,6 +4,17 @@
 static int bourdonVoice;                                  /* voix en boucle du bourdonnement des neons */
 static unsigned char neonEtat[MAXNEON];                   /* dernier etat de chaque neon (gresillement au changement) */
 
+/* mini-carte : les cases en vue (a moins de MINICARTE_VUE) sont decouvertes */
+static void minicarte_decouvrir(void) {
+    int px = (int)floorf(P.pos.x), pz = (int)floorf(P.pos.z), r = MINICARTE_VUE;
+    for (int z = pz - r; z <= pz + r; z++)
+        for (int x = px - r; x <= px + r; x++) {
+            if (x < 0 || z < 0 || x >= carteW || z >= carteH || decouvert[z][x]) continue;
+            if ((x - px) * (x - px) + (z - pz) * (z - pz) > r * r) continue;
+            if (visible_xz(P.pos.x, P.pos.z, x + 0.5f, z + 0.5f)) decouvert[z][x] = 1;
+        }
+}
+
 static void reset_game(void) {
     gameT = 0;
     niveau_charger_ex(1, 0);
@@ -21,6 +32,10 @@ static void game_tick(float dt) {
     else monstres_tick(dt, gameT);
     objectif_tick(dt);
     pieces_tick(dt);
+    {                                                     /* mini-carte : ce que l'on voit autour de soi */
+        static float decT;
+        if ((decT -= dt) <= 0) { decT = 0.15f; minicarte_decouvrir(); }
+    }
     joueurs_tick(dt);
     reseau_hote_tick(dt);
     ecoutePos = P.pos; ecouteYaw = P.yaw;
