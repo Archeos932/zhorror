@@ -18,6 +18,8 @@ typedef struct {
 #define MAXMON 4
 static Monstre mon[MAXMON];
 static int nmon;
+static float protectionT;                                 /* > 0 : debut de niveau, les monstres n'attrapent personne */
+static float protegeT[MAXP];                              /* > 0 : ce joueur vient de reapparaitre, on ne l'attrape pas */
 static int tueur = -1;                                    /* le monstre qui vient d'attraper le joueur */
 static int monstresEveilles = 1;                          /* niveau 1 : il dort jusqu'au premier fusible (niveaux.c) */
 
@@ -80,6 +82,8 @@ static void mon_ajouter(int type, float vitK) {
 static void monstres_reset(void) {
     for (int i = 0; i < nmon; i++) if (mon[i].souffle) loop_stop(mon[i].souffle);
     nmon = 0; tueur = -1;
+    protectionT = PROTECTION_DEPART;
+    memset(protegeT, 0, sizeof protegeT);
     bruitMondeForce = 0;
 }
 
@@ -237,6 +241,8 @@ static float rampante_tick(Monstre *m, float dt) {
 
 static void monstres_tick(float dt, float t) {
     cibles_maj();
+    if (protectionT > 0) protectionT -= dt;
+    for (int k = 0; k < MAXP; k++) if (protegeT[k] > 0) protegeT[k] -= dt;
     if (!monstresEveilles) return;
     for (int i = 0; i < nmon; i++) {
         Monstre *m = &mon[i];
@@ -248,9 +254,9 @@ static void monstres_tick(float dt, float t) {
         if (m->type == MON_RODEUR) v = rodeur_tick(m, dt);
         else if (m->type == MON_LOCATAIRE) v = locataire_tick(m, dt, t);
         else v = rampante_tick(m, dt);
-        if (m->etat != E_FIGE)
+        if (m->etat != E_FIGE && protectionT <= 0)
             for (int k = 0; k < MAXP; k++) {               /* il attrape ceux qu'il touche */
-                if (!cib[k].actif || cib[k].mort || cib[k].cache || dist_xz(m->pos, cib[k].pos) >= RODEUR_PRISE) continue;   /* cache : il ne le trouve pas */
+                if (!cib[k].actif || cib[k].mort || cib[k].cache || protegeT[k] > 0 || dist_xz(m->pos, cib[k].pos) >= RODEUR_PRISE) continue;   /* cache : il ne le trouve pas */
                 if (k == slot_local()) { if (tueur < 0) tueur = i; }
                 else reseau_mort_distante(k, m->type);
                 cib[k].mort = 1;

@@ -65,7 +65,7 @@ Le propriétaire est francophone : réponses, commentaires et docs **en françai
   (remplie par `.github/workflows/release.yml` à chaque push sur `main`, build = `BOURDON_BUILD` = run_number).
   **Pousser sur `main` = publier chez tous les joueurs.**
 - Captures `--shot` : `menu`, `param`, `jeu`, `noir`, `flaque`, `piege`, `rodeur`, `locataire`, `rampante`,
-  `screamer`, `mort`, `carton`, `ascenseur`, `piliers`, `niveau3`.
+  `screamer`, `mort`, `spectateur`, `carton`, `ascenseur`, `piliers`, `niveau3`.
 - **En ligne** (étape 4, faite autrement que VELOCITY : tout passe par le serveur, pas d'UDP direct) :
   - serveur de salons `worker/` (Cloudflare Worker + Durable Object hibernable) : logique pure dans
     `worker/src/salons.js`, testée par `node worker/test.js` ; serveur local `node worker/dev-server.js 8787` ;

@@ -44,7 +44,7 @@ static void test_isoler(void) {                          /* tests du joueur seul
 static void test_reset(void) { reset_game(); cartonActif = 0; }   /* sans les textes de l'histoire */
 static void test_monstre(int type, float x, float z) {
     test_isoler(); mon_ajouter(type, 1);
-    monstresEveilles = 1;
+    monstresEveilles = 1; protectionT = 0;
     mon[0].pos = mon[0].prevPos = v3(x, 0, z); mon_etat(&mon[0], E_ERRE, 0); mon_viser(&mon[0], mon[0].pos);
 }
 static void test_place(float x, float z, float yaw) { P.pos = P.prevPos = v3(x, 0, z); P.yaw = P.lampeYaw = yaw; P.vel = v3(0, 0, 0); }
@@ -327,6 +327,16 @@ static int run_tests(const char *path) {
         carteTest = 1;
     }
 
+    /* debut de niveau : quelques secondes ou personne n'est attrape (on reapparait sans mourir aussitot) */
+    {
+        test_reset(); niveau_charger_ex(2, 0); cartonActif = 0;
+        mon[0].pos = mon[0].prevPos = P.pos; mon_etat(&mon[0], E_ERRE, 0); mon_viser(&mon[0], mon[0].pos);
+        for (int i = 0; i < (int)(1.0f / TICK); i++) monstres_tick(TICK, i * TICK);
+        check("depart : protege au debut du niveau", (float)(tueur >= 0), 0, 0);
+        for (int i = 0; i < (int)(PROTECTION_DEPART / TICK); i++) { mon[0].pos = P.pos; monstres_tick(TICK, i * TICK); }
+        check("depart : plus protege ensuite", (float)(tueur >= 0), 1, 1);
+    }
+
     /* en ligne : instantane, et monstres face a plusieurs joueurs */
     {
         test_reset(); test_place(10.5f, 27.5f, PI / 2); test_monstre(MON_RODEUR, 22.5f, 27.5f);
@@ -339,6 +349,28 @@ static int run_tests(const char *path) {
         mon[0].pos = v3(35.5f, 0, 27.4f);
         monstres_tick(TICK, 0);
         check("multi : il attrape Ines (annonce de l'hote)", (float)mortHote[1], MON_RODEUR + 1, MON_RODEUR + 1);
+        {                                                 /* un vieux paquet d'Ines (morte au niveau d'avant) : pas morte ici */
+            int mh = mortHote[1]; Snap s0;
+            mortHote[1] = 0; JP[1].st.flags |= JF_MORT; snap_faire(&s0);
+            check("multi : nouveau niveau, un vieux 'mort' du client ne le tue pas", (float)(s0.j[1].flags & JF_MORT), 0, 0);
+            mortHote[1] = mh;
+        }
+        {                                                 /* Ines morte demande a revenir : l'hote lui rend la vie */
+            int mh = mortHote[1]; NetJ j = JP[1].st;
+            j.reapp = (unsigned char)(JP[1].reappVu + 1); hote_recoit_j(1, &j);
+            check("multi : reapparition, l'hote efface la mort", (float)mortHote[1], 0, 0);
+            check("multi : reapparition, protegee un moment", protegeT[1] > 0 ? 1.0f : 0.0f, 1, 1);
+            j.flags |= JF_MORT; hote_recoit_j(1, &j);
+            check("multi : reapparition, son vieux paquet ne la retue pas", (float)mortHote[1], 0, 0);
+            mortHote[1] = mh; protegeT[1] = 0;
+        }
+        {                                                 /* cote client : apres 5 s de mort, ESPACE fait revenir au depart */
+            int ns = netMode; netMode = NET_CLIENT; P.dead = 1; mortT = REAPPARITION_DELAI + 0.1f; screamT = -1;
+            unsigned char r0 = reappMoi; memset(actP, 0, sizeof actP); actP[A_CRIER] = 1;
+            peur_tick(TICK);
+            check("multi : reapparition, vivant au depart", (float)(!P.dead && dist_xz(P.pos, carteDepart) < 1.5f && reappMoi == (unsigned char)(r0 + 1)), 1, 1);
+            actP[A_CRIER] = 0; netMode = ns;
+        }
         Snap s; snap_faire(&s);
         unsigned char back[sizeof(Snap) + 8]; char b64[WS_LIGNE];
         int n = b64_enc((const unsigned char *)&s, sizeof s, b64), m = b64_dec(b64, back, sizeof back);

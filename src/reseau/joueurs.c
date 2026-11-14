@@ -18,7 +18,7 @@ typedef struct {                                          /* l'etat d'un joueur,
     float x, z, yaw, pitch, lampeYaw, lampePitch;
     unsigned char oeil, bruit, flags, batterie;           /* oeil en cm ; bruit x 100 ; batterie en % */
     unsigned short pas;                                   /* compteur de pas (sons des autres) */
-    unsigned char mortType, pad;
+    unsigned char mortType, reapp;                        /* reapp : compteur de reapparitions (en ligne) */
 } NetJ;
 #pragma pack(pop)
 
@@ -30,8 +30,10 @@ typedef struct {
     unsigned short pasVu;                                 /* dernier pas joue */
     int utiliseVu;                                        /* hote : dernier bit "utilise" traite (front montant) */
     float criT;                                           /* son du cri deja joue recemment */
+    unsigned char reappVu;                                /* hote : derniere reapparition traitee */
 } Joueur;
 static Joueur JP[MAXP];
+static unsigned char reappMoi;                           /* mes reapparitions (en ligne) : l'hote la voit et me rend la vie */
 
 static void netj_de_P(NetJ *s) {
     memset(s, 0, sizeof *s);
@@ -44,6 +46,7 @@ static void netj_de_P(NetJ *s) {
                                (P.piegeT > 0 ? JF_PIEGE : 0) | (act[A_UTILISER] ? JF_UTILISE : 0) | (P.court ? JF_COURT : 0) |
                                (P.bruitImpulse >= BRUIT_CRI - 0.05f ? JF_CRI : 0) | (P.cache ? JF_CACHE : 0));
     s->pas = (unsigned short)P.pas;
+    s->reapp = reappMoi;
 }
 
 /* ---- cibles des monstres ------------------------------------------------------------------------ */

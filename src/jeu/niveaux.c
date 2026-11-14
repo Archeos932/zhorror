@@ -34,6 +34,16 @@ static int niveau_monstres(int n, int types[3]) {
     }
 }
 
+/* le joueur local, neuf, a sa place au depart du niveau */
+static void joueur_au_depart(void) {
+    player_reset();
+    if (netMode != NET_OFF) {                             /* en ligne : chacun a sa place a cote du depart */
+        P.pos.x += (monSlot % 2 ? 0.6f : -0.6f) * (monSlot > 0); P.pos.z += monSlot >= 2 ? 0.6f : 0;
+        carte_collision(&P.pos.x, &P.pos.z, RAYON_JOUEUR);
+        P.prevPos = P.pos;
+    }
+}
+
 static void niveau_charger_ex(int n, int avecCarton) {
     niveauNum = n;
     if (n <= 1) {
@@ -59,12 +69,7 @@ static void niveau_charger_ex(int n, int avecCarton) {
         generer_niveau(1000u + (unsigned)n * 7919u, taille, taille);
         niveauFog = FOG_DENSITE * (1.0f + 0.1f * (k + 1));
     }
-    player_reset();
-    if (netMode != NET_OFF) {                             /* en ligne : chacun a sa place a cote du depart */
-        P.pos.x += (monSlot % 2 ? 0.6f : -0.6f) * (monSlot > 0); P.pos.z += monSlot >= 2 ? 0.6f : 0;
-        carte_collision(&P.pos.x, &P.pos.z, RAYON_JOUEUR);
-        P.prevPos = P.pos;
-    }
+    joueur_au_depart();
     monstres_reset();
     monstresEveilles = n > 1;                             /* niveau 1 : il dort jusqu'au premier fusible */
     int types[3], nt = niveau_monstres(n, types);

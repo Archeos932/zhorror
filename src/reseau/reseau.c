@@ -12,7 +12,7 @@
 static void reset_game(void);                             /* jeu/boucle.c */
 static int autoMulti;                                     /* plateforme/demarrage.c : --multi (tests) */
 
-#define RESEAU_VER 2                                      /* a incrementer des qu'un paquet change */
+#define RESEAU_VER 3                                      /* a incrementer des qu'un paquet change */
 #define RESEAU_HZ 15.0f
 enum { SAL_AUCUN, SAL_CONNEXION, SAL_LISTE, SAL_DANS, SAL_JEU };
 static int salEtat, salHote;
@@ -60,7 +60,7 @@ static void snap_faire(Snap *s) {
     for (int k = 0; k < MAXP; k++) {
         s->piegeSeq[k] = (unsigned char)piegeSeq[k];
         if (k == monSlot) { netj_de_P(&s->j[k]); s->actifs |= (unsigned char)(1 << k); }
-        else if (JP[k].actif) { s->j[k] = JP[k].st; s->actifs |= (unsigned char)(1 << k); }
+        else if (JP[k].actif) { s->j[k] = JP[k].st; s->j[k].flags &= (unsigned char)~JF_MORT; s->actifs |= (unsigned char)(1 << k); }
         if (mortHote[k]) { s->j[k].flags |= JF_MORT; s->j[k].mortType = (unsigned char)(mortHote[k] - 1); }
     }
     for (int i = 0, k = 0; i < nmeubles && k < MEUBLES_RESEAU; i++)
@@ -80,6 +80,22 @@ static void reseau_mort_distante(int slot, int type) {
     char m[64]; snprintf(m, sizeof m, "%s a ete pris.", JP[slot].nom);
     message(m, 4.0f);
     netlog("mort de %s (monstre %d)", JP[slot].nom, type);
+}
+
+/* l'hote recoit l'etat d'un joueur ; la mort, c'est l'hote qui la decide (un paquet d'avant le changement de
+   niveau tuerait le joueur des son arrivee) ; un nouveau compteur de reapparition lui rend la vie */
+static void hote_recoit_j(int de, NetJ *j) {
+    if (j->reapp != JP[de].reappVu) {
+        JP[de].reappVu = j->reapp;
+        if (mortHote[de]) {
+            mortHote[de] = 0; protegeT[de] = PROTECTION_DEPART;
+            char m[64]; snprintf(m, sizeof m, "%s est revenu.", JP[de].nom); message(m, 3.0f);
+            netlog("%s reapparait", JP[de].nom);
+        }
+    }
+    j->flags &= (unsigned char)~JF_MORT;
+    if (mortHote[de]) j->flags |= JF_MORT;
+    JP[de].st = *j; if (!JP[de].actif) JP[de].disp = v3(j->x, 0, j->z); JP[de].actif = 1;
 }
 
 /* ---- le client applique l'instantane ------------------------------------------------------------ */
@@ -116,7 +132,7 @@ static void snap_appliquer(const Snap *s) {
     for (int k = 0; k < MAXP; k++) {
         int actif = (s->actifs >> k & 1) != 0;
         if (k == monSlot) {
-            if ((s->j[k].flags & JF_MORT) && !P.dead && screamT < 0) { tueur = -1; mort_commencer(s->j[k].mortType); }
+            if ((s->j[k].flags & JF_MORT) && s->j[k].reapp == reappMoi && !P.dead && screamT < 0) {   /* reapp : l'hote a vu mon retour */ tueur = -1; mort_commencer(s->j[k].mortType); }
             continue;
         }
         if (actif && JP[k].actif && !(JP[k].st.flags & JF_MORT) && (s->j[k].flags & JF_MORT)) {
@@ -244,7 +260,7 @@ static void serveur_ligne(char *l) {
         netRecus++;
         if (netMode == NET_HOTE && n == (int)sizeof(PaquetJ) && de > 0 && de < MAXP) {
             PaquetJ pk; memcpy(&pk, b, sizeof pk);
-            if (pk.type == 'J' && pk.ver == RESEAU_VER) { JP[de].st = pk.j; if (!JP[de].actif) JP[de].disp = v3(pk.j.x, 0, pk.j.z); JP[de].actif = 1; }
+            if (pk.type == 'J' && pk.ver == RESEAU_VER) hote_recoit_j(de, &pk.j);
         } else if (netMode == NET_CLIENT && n == (int)sizeof(Snap)) {
             Snap s; memcpy(&s, b, sizeof s);
             if (s.type == 'S') snap_appliquer(&s);

@@ -187,6 +187,21 @@ static void draw_carton(float t) {
         text_c(0, winW * 0.5f, winH - 60.0f, "[E] continuer", 0.6f, 0.58f, 0.5f, 0.8f);
 }
 
+/* mort en ligne : la camera se place derriere l'epaule de celui que l'on regarde, sans traverser les murs */
+static V3 spectateur_oeil(const Joueur *j, float yaw, float pitch) {
+    V3 tete = v3(j->disp.x, j->st.oeil / 100.0f + 0.3f, j->disp.z), arr = vmul(view_dir(yaw, pitch), -1), eye = tete;
+    for (float d = 0.1f; d <= SPECTATEUR_RECUL; d += 0.05f) {
+        V3 q = vadd(tete, vmul(arr, d));
+        if (q.y < 0.25f || q.y > HAUT_PLAFOND - 0.15f) break;
+        int bloque = 0;                                   /* garder un peu de marge avec les murs */
+        for (int c = 0; c < 4 && !bloque; c++)
+            bloque = cell_mur((int)floorf(q.x + (c & 1 ? 0.15f : -0.15f)), (int)floorf(q.z + (c & 2 ? 0.15f : -0.15f)));
+        if (bloque) break;
+        eye = q;
+    }
+    return eye;
+}
+
 static void render(float alpha, float frameDt) {
     float t = appState == APP_GAME ? gameT : (float)nowT;
     cctv_maj(t, frameDt);                                 /* les ecrans de la salle des cameras (seulement si on est pres) */
@@ -204,8 +219,8 @@ static void render(float alpha, float frameDt) {
     float yaw, pitch, roll = 0, fov = FOV_V;
     if (appState == APP_GAME && spectateur() >= 0) {      /* mort en ligne : on regarde par les yeux d'un autre */
         Joueur *j = &JP[spectateur()];
-        eye = v3(j->disp.x, j->st.oeil / 100.0f, j->disp.z);
         yaw = j->st.yaw; pitch = j->st.pitch;
+        eye = spectateur_oeil(j, yaw, pitch);
         lampeK = 0;
     } else if (appState == APP_GAME) {
         eye = player_eye(alpha, &roll);
@@ -285,7 +300,7 @@ static void render(float alpha, float frameDt) {
             draw_noms();
             char b[80]; snprintf(b, sizeof b, "TU OBSERVES %s   -   [E] suivant", JP[spectateur()].nom);
             text_c(0, winW * 0.5f, winH - 70.0f, b, 0.75f, 0.3f, 0.25f, 0.9f);
-            text_c(0, winW * 0.5f, winH - 44.0f, "le niveau recommence si tout le monde est pris", 0.5f, 0.46f, 0.4f, 0.8f);
+            text_c(0, winW * 0.5f, winH - 44.0f, mortT > REAPPARITION_DELAI ? "[ESPACE] revenir au depart" : "le niveau recommence si tout le monde est pris", 0.5f, 0.46f, 0.4f, 0.8f);
         } else if (mortT >= 0) {
             rect(0, 0, (float)winW, (float)winH, 0, 0, 0, 1);
             vhs(t, 0.5f);
@@ -293,7 +308,7 @@ static void render(float alpha, float frameDt) {
             float a = fminf(1, mortT);
             text_c(2, winW * 0.5f, winH * 0.42f, texteMort[screamType], 0.75f, 0.08f, 0.05f, a);
             text_c(0, winW * 0.5f, winH * 0.42f + 50, texteConseil[screamType], 0.55f, 0.5f, 0.45f, a * 0.8f);
-            if (mortT > 1.5f) text_c(0, winW * 0.5f, winH * 0.42f + 90, netMode == NET_OFF ? "[E] recommencer le niveau" : "les autres sont encore la...", 0.6f, 0.55f, 0.5f, a * 0.8f);
+            if (mortT > 1.5f) text_c(0, winW * 0.5f, winH * 0.42f + 90, netMode == NET_OFF ? "[E] recommencer le niveau" : mortT > REAPPARITION_DELAI ? "[ESPACE] revenir au depart" : "les autres sont encore la...", 0.6f, 0.55f, 0.5f, a * 0.8f);
         } else {
             if (subliminalT >= 0) dechirures(t, 8);
             draw_vhs_overlay(t);

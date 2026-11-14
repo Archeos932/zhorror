@@ -236,6 +236,12 @@ static int bourdon_main(const char *cmd) {
                 }
             }
         }
+        else if (strstr(shotPath, "spectateur")) {      /* mort en ligne : on suit Ines, derriere elle */
+            netMode = NET_HOTE; monSlot = 0; P.dead = 1; mortT = 3; screamType = MON_RODEUR;
+            JP[1].actif = 1; snprintf(JP[1].nom, sizeof JP[1].nom, "Ines");
+            JP[1].st.x = 6.5f; JP[1].st.z = 27.8f; JP[1].st.yaw = JP[1].st.lampeYaw = PI / 2 + 0.25f; JP[1].st.oeil = 165;
+            JP[1].st.flags = JF_LAMPE; JP[1].disp = v3(6.5f, 0, 27.8f);
+        }
         else if (strstr(shotPath, "multi")) {           /* un coequipier, sa lampe, son pseudo */
             netMode = NET_HOTE; monSlot = 0;
             P.pos = P.prevPos = v3(2.5f, 0, 27.5f); P.yaw = P.lampeYaw = PI / 2;

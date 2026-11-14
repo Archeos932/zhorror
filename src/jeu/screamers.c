@@ -49,6 +49,15 @@ static void mort_commencer(int type) {
     bpm = BPM_MAX;
 }
 
+/* en ligne : on revient au depart du niveau, vivant (l'hote le voit par reapp et efface la mort) */
+static void reapparaitre(void) {
+    joueur_au_depart();
+    peur_reset(); tueur = -1;
+    reappMoi++;
+    protegeT[slot_local()] = PROTECTION_DEPART;
+    message("TU REVIENS AU DEPART.", 3.0f);
+}
+
 static void peur_tick(float dt) {
     if (tueur >= 0 && !P.dead) mort_commencer(mon[tueur].type);
     if (subliminalT >= 0 && (subliminalT += dt) > 0.07f) subliminalT = -1;
@@ -61,6 +70,7 @@ static void peur_tick(float dt) {
         mortT += dt;
         if (netMode == NET_OFF && mortT > 1.5f && (actP[A_UTILISER] || actP[A_CRIER])) niveau_charger_ex(niveauNum, 0);
         if (netMode != NET_OFF && mortT > 2.5f && actP[A_UTILISER]) spectateurK += 1;   /* en ligne : regarder un autre */
+        if (netMode != NET_OFF && mortT > REAPPARITION_DELAI && actP[A_CRIER]) reapparaitre();
         return;
     }
     float d;

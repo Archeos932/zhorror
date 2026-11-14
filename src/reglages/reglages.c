@@ -71,6 +71,9 @@
 #define RODEUR_CHASSE_V   4.95f   /* quand il te poursuit : la course le distance... tant que l'endurance tient */
 #define RODEUR_OUIE       15.0f   /* portee d'ecoute pour un bruit de 1 (course) ; derriere un mur : moitie */
 #define RODEUR_PRISE      0.75f   /* a cette distance, il t'attrape */
+#define PROTECTION_DEPART 3.0f    /* debut de niveau : personne ne peut etre attrape pendant ces secondes */
+#define REAPPARITION_DELAI 5.0f  /* mort en ligne : au bout de ces secondes, [ESPACE] fait reapparaitre au depart */
+#define SPECTATEUR_RECUL  2.2f    /* mort en ligne : la camera suit l'autre a cette distance, derriere lui */
 #define RODEUR_OUBLI      3.5f    /* sans t'entendre pendant ce temps, il abandonne la poursuite */
 #define RODEUR_ERRE_RMIN  6.0f    /* il erre dans un anneau autour du joueur : se balade "a cote" */
 #define RODEUR_ERRE_RMAX  17.0f
