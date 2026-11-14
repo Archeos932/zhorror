@@ -32,7 +32,7 @@
 static void cfg_save(void);                               /* interface/config.c */
 
 enum { UPD_IDLE, UPD_CHECKING, UPD_UPTODATE, UPD_AVAILABLE, UPD_DOWNLOADING, UPD_READY, UPD_ERROR };
-typedef struct { int build; char sha[16]; long winSize, macSize, linSize; char winHash[65], macHash[65], linHash[65]; } UpdInfo;
+typedef struct { int build; char sha[16], ref[48];   /* ref : commit de la branche release qui porte les binaires */ long winSize, macSize, linSize; char winHash[65], macHash[65], linHash[65]; } UpdInfo;
 static volatile LONG updState, updGot, updTotal;          /* ecrits par le fil, lus par le menu */
 static CRITICAL_SECTION updCs;
 static int updCsReady, updSeen = UPD_IDLE, updCheck = 1, updAfter, updPage;   /* updCheck : reglage ; updAfter : --updated */
@@ -118,6 +118,7 @@ static int upd_parse(const char *txt, UpdInfo *o) {
         for (char *c = v; *c; c++) *c = (char)tolower((unsigned char)*c);
         if (!strcmp(line, "build")) o->build = atoi(v);
         else if (!strcmp(line, "sha")) snprintf(o->sha, sizeof o->sha, "%s", v);
+        else if (!strcmp(line, "ref") && strlen(v) == 40 && strspn(v, "0123456789abcdef") == 40) snprintf(o->ref, sizeof o->ref, "%s", v);
         else if (!strcmp(line, "win_size")) o->winSize = atol(v);
         else if (!strcmp(line, "mac_size")) o->macSize = atol(v);
         else if (!strcmp(line, "win_sha256")) snprintf(o->winHash, sizeof o->winHash, "%s", v);
@@ -278,6 +279,7 @@ static DWORD WINAPI upd_download_th(LPVOID arg) {
     UpdInfo in;
     char hex[65];
     long size = 0, want;
+    int got;
     const char *hash;
     (void)arg;
     EnterCriticalSection(&updCs);
@@ -295,7 +297,13 @@ static DWORD WINAPI upd_download_th(LPVOID arg) {
     FILE *t = fopen(updFile, "wb");                       /* dossier protege (Program Files...) : page de telechargement */
     if (!t) { upd_fail("impossible d'ecrire dans le dossier du jeu", 1); return 0; }
     fclose(t);
-    if (upd_http_get(UPD_DIR UPD_BIN, updFile, NULL, 0) <= 0) {
+    {                                                     /* par le commit (adresse figee) : le cache de raw.githubusercontent */
+        char chemin[160];                                 /* ne peut pas servir un binaire d'une autre version */
+        if (in.ref[0]) snprintf(chemin, sizeof chemin, "/" UPD_REPO "/%s/" UPD_BIN, in.ref);
+        else snprintf(chemin, sizeof chemin, UPD_DIR UPD_BIN);
+        got = upd_http_get(chemin, updFile, NULL, 0);
+    }
+    if (got <= 0) {
         remove(updFile);
         upd_fail("telechargement interrompu", 0);
         return 0;

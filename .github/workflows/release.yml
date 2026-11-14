@@ -1,7 +1,7 @@
 # Publication : a chaque push sur main (ou a la main : onglet Actions > Publication > Run workflow), compile les trois
 # versions avec le numero de build BOURDON_BUILD = github.run_number, lance les tests, puis :
 #   1. met a jour la branche `release` du depot : bourdonnement.exe, Bourdonnement-macOS.zip, Bourdonnement-Linux.tar.gz
-#      et version.txt (numero de build, taille et SHA-256 de chaque binaire). C'est elle que lit le bouton
+#      puis version.txt (numero de build, commit `ref` des binaires, taille et SHA-256 de chaque binaire). C'est elle que lit le bouton
 #      MISE A JOUR du jeu (src/interface/mise_a_jour.c) ;
 #   2. remplace les fichiers de la release GitHub « dernier » (liens de telechargement stables).
 name: Publication
@@ -93,16 +93,6 @@ jobs:
           git rm -rqf --ignore-unmatch .
           cp ../bin/win/bourdonnement.exe ../bin/mac/Bourdonnement-macOS.zip ../bin/linux/Bourdonnement-Linux.tar.gz .
           {
-            echo "build=$BUILD"
-            echo "sha=${SHA:0:7}"
-            echo "win_size=$(stat -c %s bourdonnement.exe)"
-            echo "win_sha256=$(sha256sum bourdonnement.exe | cut -d' ' -f1)"
-            echo "mac_size=$(stat -c %s Bourdonnement-macOS.zip)"
-            echo "mac_sha256=$(sha256sum Bourdonnement-macOS.zip | cut -d' ' -f1)"
-            echo "linux_size=$(stat -c %s Bourdonnement-Linux.tar.gz)"
-            echo "linux_sha256=$(sha256sum Bourdonnement-Linux.tar.gz | cut -d' ' -f1)"
-          } > version.txt
-          {
             echo "# BOURDONNEMENT - le jeu, pret a jouer"
             echo
             echo "Construit automatiquement depuis \`main\` (${SHA:0:7}), build $BUILD. Ne pas modifier cette branche a la main."
@@ -115,9 +105,27 @@ jobs:
             echo
             echo "Ensuite, le bouton **MISE A JOUR** du menu installe tout seul les nouvelles versions."
           } > README.md
+          # 1. les binaires d'abord ; 2. version.txt donne ce commit (ref) : le jeu telecharge par cette adresse figee,
+          #    que le cache de raw.githubusercontent ne peut pas melanger avec une autre version
+          git rm -q --cached --ignore-unmatch version.txt; rm -f version.txt
           git add -A
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -q -m "Binaires de main ${SHA:0:7} (build $BUILD)" || { echo "rien a changer"; exit 0; }
+          REF=$(git rev-parse HEAD)
+          {
+            echo "build=$BUILD"
+            echo "sha=${SHA:0:7}"
+            echo "ref=$REF"
+            echo "win_size=$(stat -c %s bourdonnement.exe)"
+            echo "win_sha256=$(sha256sum bourdonnement.exe | cut -d' ' -f1)"
+            echo "mac_size=$(stat -c %s Bourdonnement-macOS.zip)"
+            echo "mac_sha256=$(sha256sum Bourdonnement-macOS.zip | cut -d' ' -f1)"
+            echo "linux_size=$(stat -c %s Bourdonnement-Linux.tar.gz)"
+            echo "linux_sha256=$(sha256sum Bourdonnement-Linux.tar.gz | cut -d' ' -f1)"
+          } > version.txt
+          git add version.txt
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "version.txt : build $BUILD"
           git push -q origin release
       - name: Release GitHub « dernier »
         env:
