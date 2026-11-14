@@ -1,6 +1,6 @@
 # BOURDONNEMENT - le jeu, pret a jouer
 
-Construit automatiquement depuis `main` (f50c643), build 10. Ne pas modifier cette branche a la main.
+Construit automatiquement depuis `main` (4036285), build 11. Ne pas modifier cette branche a la main.
 
 - **Windows** : telecharge [`bourdonnement.exe`](https://github.com/Archeos932/zhorror/raw/release/bourdonnement.exe) et lance-le
   (si Windows avertit : *Informations complementaires* > *Executer quand meme*).
