@@ -75,6 +75,9 @@ Le propriétaire est francophone : réponses, commentaires et docs **en françai
     `cib[]`), `src/reseau/reseau.c` (salons, `PaquetJ` client→hôte et `Snap` hôte→tous à 15/s ; événements déduits
     des différences d'instantanés ; **`RESEAU_VER`++ à chaque changement de paquet**) ;
   - l'hôte simule monstres, pièges, fusibles, ascenseur, morts (`mortHote`), niveau (`essaiNiveau`) ;
+  - mort en ligne : caméra derrière l'épaule d'un vivant (`spectateur_oeil`) ; après `REAPPARITION_DELAI`, [ESPACE] =
+    `reapparaitre()` au départ : compteur `NetJ.reapp` (`reappMoi`), l'hôte efface `mortHote` (`hote_recoit_j`) et ignore
+    le `JF_MORT` envoyé par les clients ; protections `PROTECTION_DEPART` (début de niveau) et `protegeT[]` (par joueur) ;
     les clients appliquent l'instantané (`snap_appliquer`) et rejouent les monstres (`monstres_client_tick`) ;
   - test de bout en bout sur une machine : serveur local, puis
     `bourdonnement --multi creer --serveur 127.0.0.1:8787 --nom A --temps 30 --log a.txt` et
